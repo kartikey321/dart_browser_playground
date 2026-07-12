@@ -12,6 +12,7 @@ Verified on 2026-07-12:
 - Metadata responses include `access-control-allow-origin: *`.
 - Package archive responses from `archive_url` also include `access-control-allow-origin: *`.
 - Archives are downloadable directly as `.tar.gz` from browser-accessible URLs.
+- Downloaded archives can be decompressed and parsed in browser-compatible code using `DecompressionStream` and a minimal TAR reader.
 
 Run the live check:
 
@@ -65,7 +66,7 @@ analyzer + compiler worker
 
 1. Keep current bundled-package Pub get as the stable path.
 2. Add a `HostedPubPackageSource` module that can fetch metadata for one package. (`web/lib/hosted_pub_source.js`)
-3. Add a package archive fetch/unpack probe for one small package.
+3. Add a package archive fetch/unpack probe for one small package. (`web/lib/package_archive.js`)
 4. Add package source caching in IndexedDB.
 5. Port or implement a minimal Pubgrub-compatible solver over fetched metadata.
 6. Generate `package_config.json` from the solved graph.
@@ -96,5 +97,7 @@ This keeps the browser playground aligned with client-side Dart/Jaspr examples a
 ## Current implementation artifacts
 
 - `web/lib/hosted_pub_source.js` contains the browser-compatible hosted source client.
+- `web/lib/package_archive.js` contains browser-compatible gzip/TAR archive parsing.
 - `tool/probe_hosted_pub_source.mjs` tests the hosted source client without network access.
+- `tool/probe_package_archive.mjs` tests archive parsing without network access.
 - `tool/probe_pubdev_feasibility.mjs` verifies live pub.dev metadata/archive CORS behavior.

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { HostedPubPackageSource } from '../web/lib/hosted_pub_source.js';
+import { parseTarGz, tarFileText } from '../web/lib/package_archive.js';
 
 const origin = process.env.ORIGIN || 'http://localhost:8766';
 const packageName = process.env.PACKAGE || 'http';
@@ -13,6 +14,19 @@ const archive = await source.checkArchive(metadata.latest.archiveUrl);
 if (!archive.corsAllowed) {
   throw new Error(`Archive request is not browser-CORS accessible: ${archive.corsHeader}`);
 }
+const archiveResponse = await fetch(metadata.latest.archiveUrl, {
+  headers: { Origin: origin },
+  redirect: 'follow',
+});
+if (!archiveResponse.ok) {
+  throw new Error(`Archive download failed: ${archiveResponse.status} ${archiveResponse.statusText}`);
+}
+const archiveFiles = await parseTarGz(await archiveResponse.arrayBuffer());
+const pubspecPath = [...archiveFiles.keys()].find((path) => path === 'pubspec.yaml' || path.endsWith('/pubspec.yaml'));
+if (!pubspecPath) {
+  throw new Error('Downloaded archive does not contain pubspec.yaml.');
+}
+const libFileCount = [...archiveFiles.keys()].filter((path) => path.startsWith('lib/') && path.endsWith('.dart')).length;
 
 console.log(
   JSON.stringify(
@@ -27,6 +41,10 @@ console.log(
       metadataCors: metadata.corsHeader,
       archiveCors: archive.corsHeader,
       archiveContentLength: archive.contentLength,
+      archiveFileCount: archiveFiles.size,
+      archivePubspecPath: pubspecPath,
+      archivePubspecHasName: tarFileText(archiveFiles, pubspecPath)?.includes(`name: ${metadata.name}`) ?? false,
+      archiveLibFileCount: libFileCount,
       latestDependencies: metadata.latest.dependencies,
       latestEnvironment: metadata.latest.environment,
     },
