@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { gzipSync } from 'node:zlib';
 import {
+  packageArchiveToMemoryText,
   parseTar,
   parseTarGz,
   sha256Hex,
@@ -54,6 +55,7 @@ const verification = await verifySha256(gzip, gzipSha256);
 
 const plainFiles = parseTar(tar);
 const gzFiles = await parseTarGz(gzip);
+const packageText = packageArchiveToMemoryText('demo', gzFiles);
 
 assert(verification.ok, 'Expected SHA-256 verification to pass.');
 assert((await verifySha256(gzip, '00')).ok === false, 'Expected SHA-256 mismatch to fail.');
@@ -61,6 +63,12 @@ assert(plainFiles.size === 2, 'Expected two files from plain tar.');
 assert(gzFiles.size === 2, 'Expected two files from tar.gz.');
 assert(tarFileText(gzFiles, 'package/pubspec.yaml').includes('name: demo'), 'Expected pubspec text.');
 assert(tarFileText(gzFiles, 'package/lib/demo.dart').includes('demo()'), 'Expected Dart source text.');
+assert(packageText.rootPrefix === 'package/', 'Expected top-level archive folder detection.');
+assert(packageText.text['memory:/packages/demo/lib/demo.dart'].includes('demo()'), 'Expected memory package Dart file.');
+assertThrows(
+  () => packageArchiveToMemoryText('demo', new Map([['../evil.dart', new Uint8Array()]])),
+  'Unsafe package archive path',
+);
 
 console.log(
   JSON.stringify(
@@ -69,9 +77,22 @@ console.log(
       plainFiles: plainFiles.size,
       gzipBytes: gzip.length,
       gzipSha256,
+      memoryFileCount: packageText.fileCount,
+      memoryHasDart: Boolean(packageText.text['memory:/packages/demo/lib/demo.dart']),
       pubspec: tarFileText(gzFiles, 'package/pubspec.yaml'),
     },
     null,
     2,
   ),
 );
+
+function assertThrows(fn, expectedText) {
+  try {
+    fn();
+  } catch (error) {
+    const message = String((error && error.message) || error);
+    assert(message.includes(expectedText), `Expected "${expectedText}", got "${message}"`);
+    return;
+  }
+  throw new Error(`Expected function to throw "${expectedText}"`);
+}

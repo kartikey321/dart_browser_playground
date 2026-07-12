@@ -42,6 +42,42 @@ export async function parseTarGz(buffer) {
   return parseTar(await decompressGzip(buffer));
 }
 
+export function packageArchiveToMemoryText(packageName, files, {
+  packageRootUri = 'memory:/packages',
+  include = defaultPackageTextInclude,
+} = {}) {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(packageName)) {
+    throw new Error(`Invalid package name: ${packageName}`);
+  }
+
+  const rootPrefix = detectPackageArchiveRoot(files);
+  const text = {};
+  let fileCount = 0;
+
+  for (const [archivePath, bytes] of files) {
+    const relativePath = stripArchiveRoot(archivePath, rootPrefix);
+    if (!relativePath || !include(relativePath)) continue;
+    assertSafeRelativePath(relativePath);
+    text[`${packageRootUri}/${packageName}/${relativePath}`] = textDecoder.decode(bytes);
+    fileCount += 1;
+  }
+
+  return { text, fileCount, rootPrefix };
+}
+
+export function detectPackageArchiveRoot(files) {
+  if (files.has('pubspec.yaml')) return '';
+  const pubspecPaths = [...files.keys()].filter((path) => path.endsWith('/pubspec.yaml'));
+  if (pubspecPaths.length !== 1) return '';
+  return pubspecPaths[0].slice(0, -'pubspec.yaml'.length);
+}
+
+export function stripArchiveRoot(path, rootPrefix) {
+  return rootPrefix && path.startsWith(rootPrefix)
+    ? path.slice(rootPrefix.length)
+    : path;
+}
+
 export async function sha256Hex(buffer) {
   if (!globalThis.crypto?.subtle?.digest) {
     throw new Error('SHA-256 verification requires WebCrypto crypto.subtle.digest.');
@@ -68,6 +104,22 @@ export function tarFileText(files, path) {
 
 function bytesToHex(bytes) {
   return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function defaultPackageTextInclude(path) {
+  return (
+    path.endsWith('.dart') ||
+    path === 'pubspec.yaml' ||
+    path === 'analysis_options.yaml' ||
+    path.endsWith('.md')
+  );
+}
+
+function assertSafeRelativePath(path) {
+  const parts = path.split('/');
+  if (path.startsWith('/') || parts.includes('..') || parts.includes('.')) {
+    throw new Error(`Unsafe package archive path: ${path}`);
+  }
 }
 
 function isZeroBlock(block) {

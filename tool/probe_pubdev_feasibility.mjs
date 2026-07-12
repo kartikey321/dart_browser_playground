@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 import { HostedPubPackageSource } from '../web/lib/hosted_pub_source.js';
-import { parseTarGz, tarFileText, verifySha256 } from '../web/lib/package_archive.js';
+import {
+  packageArchiveToMemoryText,
+  parseTarGz,
+  tarFileText,
+  verifySha256,
+} from '../web/lib/package_archive.js';
 
 const origin = process.env.ORIGIN || 'http://localhost:8766';
 const packageName = process.env.PACKAGE || 'http';
@@ -32,6 +37,8 @@ if (!pubspecPath) {
   throw new Error('Downloaded archive does not contain pubspec.yaml.');
 }
 const libFileCount = [...archiveFiles.keys()].filter((path) => path.startsWith('lib/') && path.endsWith('.dart')).length;
+const packageText = packageArchiveToMemoryText(metadata.name, archiveFiles);
+const packageMainLibrary = `memory:/packages/${metadata.name}/lib/${metadata.name}.dart`;
 
 console.log(
   JSON.stringify(
@@ -51,6 +58,9 @@ console.log(
       archivePubspecPath: pubspecPath,
       archivePubspecHasName: tarFileText(archiveFiles, pubspecPath)?.includes(`name: ${metadata.name}`) ?? false,
       archiveLibFileCount: libFileCount,
+      memoryTextFileCount: packageText.fileCount,
+      memoryTextRootPrefix: packageText.rootPrefix,
+      memoryTextHasMainLibrary: Boolean(packageText.text[packageMainLibrary]),
       latestDependencies: metadata.latest.dependencies,
       latestEnvironment: metadata.latest.environment,
     },

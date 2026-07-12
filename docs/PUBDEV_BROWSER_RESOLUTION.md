@@ -14,6 +14,7 @@ Verified on 2026-07-12:
 - Archives are downloadable directly as `.tar.gz` from browser-accessible URLs.
 - Downloaded archives can be decompressed and parsed in browser-compatible code using `DecompressionStream` and a minimal TAR reader.
 - Downloaded archives can be verified against `archive_sha256` using WebCrypto SHA-256.
+- Parsed archive files can be mapped into compiler-compatible virtual paths like `memory:/packages/<package>/lib/<file>.dart`.
 
 Run the live check:
 
@@ -98,7 +99,7 @@ This keeps the browser playground aligned with client-side Dart/Jaspr examples a
 ## Current implementation artifacts
 
 - `web/lib/hosted_pub_source.js` contains the browser-compatible hosted source client.
-- `web/lib/package_archive.js` contains browser-compatible gzip/TAR archive parsing and SHA-256 verification.
+- `web/lib/package_archive.js` contains browser-compatible gzip/TAR archive parsing, SHA-256 verification, and archive-to-virtual-package text mapping.
 - `tool/probe_hosted_pub_source.mjs` tests the hosted source client without network access.
 - `tool/probe_package_archive.mjs` tests archive parsing without network access.
 - `tool/probe_pubdev_feasibility.mjs` verifies live pub.dev metadata/archive CORS behavior.
