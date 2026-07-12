@@ -55,6 +55,8 @@ The shell exposes dependencies through an editable `/pubspec.yaml`. For now the 
 
 The Pub get button performs this bundled-package resolution explicitly. Compile uses the last successful Pub get result and is blocked when `pubspec.yaml` or Dart `package:` imports have changed since that result. Plain source edits that do not affect package imports keep the resolved package config valid. The Packages button lists the package names currently available in the bundled static toolchain.
 
+The generated package config includes the workspace package from `name:` with `rootUri: memory:/workspace/` and `packageUri: lib/`, so files can import each other through `package:<workspace-name>/...` as well as relative paths.
+
 The Dart code action provider also adds playground-specific quick fixes. If a Dart file imports a bundled package that is missing from `dependencies:`, the editor can add `<package>: any` to `/pubspec.yaml`; the user still runs Pub get afterward to regenerate the package config.
 
 This is not a full `pub get` implementation yet. Real browser-side dependency support still needs a package metadata source, version solver, archive fetch/unpack flow, cache model, transitive graph handling, and lockfile/package-config generation.

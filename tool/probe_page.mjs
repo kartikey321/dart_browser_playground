@@ -63,6 +63,7 @@ const expectations = [
   'missingDeclaredPackageImports',
   'dart.playground.addDependency',
   "Add '${packageName}' to pubspec.yaml",
+  'package:jaspr_browser_playground/components/counter.dart',
   'components/counter.dart',
   'Compiling in worker...',
   'Jaspr browser playground',

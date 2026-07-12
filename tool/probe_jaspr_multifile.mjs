@@ -2,6 +2,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  buildPackageConfigFromPubspec,
+  parseSimplePubspec,
+  validateDeclaredPackageImports,
+} from '../web/lib/pubspec.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const compilerJs = resolve(root, 'web/toolchain/web_compiler/jaspr_ddc_compiler.js');
@@ -64,17 +69,21 @@ const packages = parseDpkg(
   readFileSync(resolve(root, 'web/toolchain/jaspr_web_sources.bin')),
 );
 
-const text = {
-  ...packages.text,
-  'memory:/workspace/lib/main.dart': `import 'package:jaspr/client.dart';
-import 'components/counter.dart';
+const pubspecSource = `name: jaspr_browser_playground
+dependencies:
+  jaspr: any
+`;
+const workspace = {
+  '/pubspec.yaml': pubspecSource,
+  '/lib/main.dart': `import 'package:jaspr/client.dart';
+import 'package:jaspr_browser_playground/components/counter.dart';
 
 void main() {
   Jaspr.initializeApp();
   runApp(const PlaygroundApp(), attachTo: '#app');
 }
 `,
-  'memory:/workspace/lib/components/counter.dart': `import 'package:jaspr/client.dart';
+  '/lib/components/counter.dart': `import 'package:jaspr/client.dart';
 import 'package:jaspr/dom.dart';
 
 class PlaygroundApp extends StatefulComponent {
@@ -106,14 +115,24 @@ class PlaygroundAppState extends State<PlaygroundApp> {
   }
 }
 `,
+};
+const pubspec = parseSimplePubspec(pubspecSource);
+validateDeclaredPackageImports(pubspec, workspace);
+const packageConfig = buildPackageConfigFromPubspec(
+  JSON.parse(readFileSync(resolve(root, 'web/toolchain/web_compiler/package_config.json'), 'utf8')),
+  pubspec,
+);
+
+const text = {
+  ...packages.text,
+  ...Object.fromEntries(
+    Object.entries(workspace).map(([path, source]) => [`memory:/workspace${path}`, source]),
+  ),
   'memory:/sdk/libraries.json': readFileSync(
     resolve(root, 'web/toolchain/web_compiler/libraries.json'),
     'utf8',
   ),
-  'memory:/workspace/.dart_tool/package_config.json': readFileSync(
-    resolve(root, 'web/toolchain/web_compiler/package_config.json'),
-    'utf8',
-  ),
+  'memory:/workspace/.dart_tool/package_config.json': packageConfig,
 };
 
 const started = Date.now();
@@ -147,6 +166,7 @@ console.log(
       jsBytes: compiled.javascript.length,
       moduleName: compiled.moduleName,
       libraryName: compiled.libraryName,
+      localPackageImportBacked: packageConfig.includes('"name": "jaspr_browser_playground"'),
       hasMultiFileText: compiled.javascript.includes(
         'Compiled from multiple files in the browser with DDC.',
       ),

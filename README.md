@@ -38,6 +38,7 @@ The current shell supports:
 - Dart LSP completions, hover, and diagnostics
 - Dart LSP quick actions/lightbulb fixes
 - multi-file workspace
+- local workspace package imports such as `package:jaspr_browser_playground/components/counter.dart`
 - left file explorer drawer
 - collapsible file explorer drawer
 - file create, rename, and delete
