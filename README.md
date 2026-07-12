@@ -9,6 +9,7 @@ Current included adapter:
 The intended split is:
 
 - `web/index.html` - generic shell for layout, Monaco, workspace files, LSP, pubspec validation, and preview plumbing
+- `web/lib/` - browser-compatible shared shell logic
 - `web/adapters/jaspr/` - Jaspr-specific compiler worker and DDC preview boot
 - `web/toolchain/` - static compiler, package, SDK, and analyzer assets
 
@@ -28,7 +29,7 @@ http://localhost:8766/index.html
 Validate page wiring:
 
 ```sh
-node tool/probe_page.mjs
+npm run probe
 ```
 
 The current shell supports:
@@ -41,6 +42,7 @@ The current shell supports:
 - collapsible file explorer drawer
 - file create, rename, and delete
 - editable `pubspec.yaml` with validation against bundled packages
+- bundled package inspection from the Packages button
 - browser worker compilation
 - isolated iframe preview
 - resizable editor/preview panes

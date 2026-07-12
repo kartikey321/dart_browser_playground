@@ -8,7 +8,7 @@ The shell owns:
 
 - workspace file map
 - Monaco models
-- `pubspec.yaml` parsing and bundled-package validation
+- `pubspec.yaml` parsing and bundled-package validation through `web/lib/pubspec.js`
 - Dart LSP bridge, including completions, hover, diagnostics, and code actions
 - active file label and collapsible file explorer drawer
 - file create, rename, and delete operations
@@ -51,6 +51,14 @@ memory:/workspace/.dart_tool/package_config.json
 
 ## Dependency model
 
-The shell exposes dependencies through an editable `/pubspec.yaml`. For now the shell parses only the direct `dependencies:` section, validates that requested packages exist in the bundled toolchain package config, validates that direct Dart `package:` imports are declared, and sends a generated in-memory `package_config.json` to the compiler worker.
+The shell exposes dependencies through an editable `/pubspec.yaml`. For now the shell parses only the direct `dependencies:` section, validates that requested packages exist in the bundled toolchain package config, validates that direct Dart `package:` imports are declared, and sends a generated in-memory `package_config.json` to the compiler worker. The Packages button lists the package names currently available in the bundled static toolchain.
 
 This is not a full `pub get` implementation yet. Real browser-side dependency support still needs a package metadata source, version solver, archive fetch/unpack flow, cache model, transitive graph handling, and lockfile/package-config generation.
+
+## Probes
+
+`npm run probe` runs:
+
+- `tool/probe_pubspec_validation.mjs` for parser/import/package-config validation
+- `tool/probe_page.mjs` for browser page wiring
+- `tool/probe_jaspr_multifile.mjs` for direct DDC multi-file compilation
