@@ -64,7 +64,7 @@ analyzer + compiler worker
 ## Implementation stages
 
 1. Keep current bundled-package Pub get as the stable path.
-2. Add a `HostedPubPackageSource` module that can fetch metadata for one package.
+2. Add a `HostedPubPackageSource` module that can fetch metadata for one package. (`web/lib/hosted_pub_source.js`)
 3. Add a package archive fetch/unpack probe for one small package.
 4. Add package source caching in IndexedDB.
 5. Port or implement a minimal Pubgrub-compatible solver over fetched metadata.
@@ -92,3 +92,9 @@ This keeps the browser playground aligned with client-side Dart/Jaspr examples a
 - How much metadata/archive data should be cached in IndexedDB?
 - Should package downloads be capped by compressed/uncompressed size?
 - How should the UI distinguish bundled, downloaded, and unsupported dependencies?
+
+## Current implementation artifacts
+
+- `web/lib/hosted_pub_source.js` contains the browser-compatible hosted source client.
+- `tool/probe_hosted_pub_source.mjs` tests the hosted source client without network access.
+- `tool/probe_pubdev_feasibility.mjs` verifies live pub.dev metadata/archive CORS behavior.
