@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Jaspr DDC preview</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        padding: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="app"></main>
+
+    <script src="../../toolchain/web_compiler/ddc_module_loader.js"></script>
+    <script src="../../toolchain/web_compiler/dart_sdk.js"></script>
+    <script>
+      let previousScript;
+      let previousUrl;
+
+      function send(type, payload = {}) {
+        parent.postMessage({ channel: 'jaspr-ddc-preview', type, ...payload }, '*');
+      }
+
+      function format(value) {
+        if (typeof value === 'string') return value;
+        try {
+          return JSON.stringify(value);
+        } catch (_) {
+          return String(value);
+        }
+      }
+
+      for (const level of ['log', 'info', 'warn', 'error']) {
+        const original = console[level].bind(console);
+        console[level] = (...args) => {
+          send('console', { level, message: args.map(format).join(' ') });
+          original(...args);
+        };
+      }
+
+      addEventListener('error', (event) => {
+        send('runtime-error', {
+          message: event.message,
+          line: event.lineno,
+          column: event.colno,
+        });
+      });
+
+      addEventListener('unhandledrejection', (event) => {
+        send('runtime-error', { message: String(event.reason) });
+      });
+
+      addEventListener('message', (event) => {
+        const message = event.data;
+        if (message?.channel !== 'jaspr-ddc-playground' || message.type !== 'run') return;
+
+        if (typeof message.javascript !== 'string') {
+          send('runtime-error', { message: 'Preview received no JavaScript output.' });
+          return;
+        }
+
+        document.querySelector('#app')?.replaceChildren();
+        previousScript?.remove();
+        if (previousUrl) URL.revokeObjectURL(previousUrl);
+
+        previousUrl = URL.createObjectURL(new Blob([message.javascript], { type: 'text/javascript' }));
+        previousScript = document.createElement('script');
+        previousScript.src = previousUrl;
+        previousScript.onload = () => {
+          try {
+            self.dart_library.start(
+              message.moduleName,
+              `jaspr-playground-${Date.now()}`,
+              message.moduleName,
+              message.libraryName,
+            );
+            send('rendered');
+          } catch (error) {
+            send('runtime-error', { message: String((error && error.stack) || error) });
+          }
+        };
+        previousScript.onerror = () => {
+          send('runtime-error', { message: 'Failed to load generated JavaScript.' });
+        };
+        document.body.append(previousScript);
+      });
+
+      send('preview-ready');
+    </script>
+  </body>
+</html>

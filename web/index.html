@@ -1,0 +1,1607 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Jaspr Browser Playground</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/editor/editor.main.css">
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f5f6f8;
+        --panel: #ffffff;
+        --text: #1e2329;
+        --muted: #66717f;
+        --line: #d9dee7;
+        --accent: #1668dc;
+        --accent-text: #ffffff;
+        --code-bg: #101114;
+        --code-text: #f1f4f8;
+        --editor-fr: 1fr;
+        --preview-fr: 1fr;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #121418;
+          --panel: #191c22;
+          --text: #e8ebf0;
+          --muted: #9aa5b3;
+          --line: #303640;
+          --accent: #5b9bff;
+          --accent-text: #07111f;
+          --code-bg: #0d0f13;
+          --code-text: #f1f4f8;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .shell {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .status {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .main {
+        display: grid;
+        grid-template-columns:
+          minmax(280px, var(--editor-fr))
+          8px
+          minmax(280px, var(--preview-fr));
+        min-height: 0;
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      .pane {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        min-height: 0;
+        min-width: 0;
+        overflow: hidden;
+        border-right: 1px solid var(--line);
+        background: var(--panel);
+      }
+
+      .pane:last-child {
+        border-right: 0;
+      }
+
+      .splitter {
+        position: relative;
+        z-index: 2;
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+        min-width: 0;
+        width: 8px;
+        height: 100%;
+        background:
+          linear-gradient(to right, transparent 0 3px, var(--line) 3px 5px, transparent 5px 8px);
+        cursor: col-resize;
+      }
+
+      .splitter:hover,
+      .splitter:focus-visible,
+      body.resizing .splitter {
+        background:
+          linear-gradient(to right, transparent 0 2px, var(--accent) 2px 6px, transparent 6px 8px);
+        outline: none;
+      }
+
+      body.resizing {
+        cursor: col-resize;
+        user-select: none;
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 49px;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .toolbar-title {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .toolbar-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .toggle-explorer {
+        min-width: 88px;
+        height: 32px;
+      }
+
+      .active-file-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .editor-workbench {
+        display: grid;
+        grid-template-columns: minmax(160px, 220px) minmax(0, 1fr);
+        min-height: 0;
+        min-width: 0;
+      }
+
+      .editor-workbench.explorer-collapsed {
+        grid-template-columns: 0 minmax(0, 1fr);
+      }
+
+      .editor-workbench.explorer-collapsed .explorer {
+        visibility: hidden;
+        border-right: 0;
+      }
+
+      .explorer {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        border-right: 1px solid var(--line);
+        background: color-mix(in srgb, var(--panel) 94%, var(--code-bg));
+      }
+
+      .explorer-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        min-height: 40px;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .explorer-title {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .explorer-actions {
+        display: flex;
+        gap: 4px;
+      }
+
+      .icon-button {
+        min-width: 28px;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+      }
+
+      .explorer-tree {
+        margin: 0;
+        padding: 8px 0;
+        overflow: auto;
+        list-style: none;
+        font-size: 13px;
+      }
+
+      .explorer-tree ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .explorer-node {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+        min-width: 0;
+        height: 28px;
+        padding: 0 8px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        color: var(--text);
+        text-align: left;
+      }
+
+      .explorer-node:hover,
+      .explorer-node.active {
+        background: color-mix(in srgb, var(--accent) 18%, transparent);
+      }
+
+      .explorer-icon {
+        width: 16px;
+        flex: 0 0 16px;
+        color: var(--muted);
+      }
+
+      .explorer-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      button {
+        min-width: 72px;
+        height: 32px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--panel);
+        color: var(--text);
+        font: inherit;
+        font-size: 13px;
+        cursor: pointer;
+      }
+
+      button.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: var(--accent-text);
+      }
+
+      button:disabled {
+        cursor: wait;
+        opacity: 0.65;
+      }
+
+      #editor {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        min-width: 0;
+        overflow: hidden;
+        background: var(--code-bg);
+      }
+
+      .preview {
+        display: grid;
+        grid-template-rows: minmax(0, 1fr) minmax(120px, 28%);
+        min-height: 0;
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      iframe {
+        width: 100%;
+        height: 100%;
+        min-width: 0;
+        border: 0;
+        background: var(--panel);
+      }
+
+      pre {
+        margin: 0;
+        padding: 12px;
+        overflow: auto;
+        min-width: 0;
+        border-top: 1px solid var(--line);
+        background: var(--panel);
+        color: var(--text);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+      }
+
+      @media (max-width: 860px) {
+        .main {
+          grid-template-columns: 1fr;
+          grid-template-rows: minmax(420px, 1fr) 8px minmax(420px, 1fr);
+        }
+
+        .pane {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .splitter {
+          width: 100%;
+          height: 8px;
+          cursor: row-resize;
+          background:
+            linear-gradient(to bottom, transparent 0 3px, var(--line) 3px 5px, transparent 5px 8px);
+        }
+
+        .splitter:hover,
+        .splitter:focus-visible,
+        body.resizing .splitter {
+          background:
+            linear-gradient(to bottom, transparent 0 2px, var(--accent) 2px 6px, transparent 6px 8px);
+        }
+
+        body.resizing {
+          cursor: row-resize;
+        }
+
+        .editor-workbench {
+          grid-template-columns: 1fr;
+          grid-template-rows: auto minmax(0, 1fr);
+        }
+
+        .editor-workbench.explorer-collapsed {
+          grid-template-columns: 1fr;
+          grid-template-rows: 0 minmax(0, 1fr);
+        }
+
+        .explorer {
+          max-height: 180px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <h1>Jaspr Browser Playground</h1>
+        <div id="status" class="status">Loading compiler...</div>
+      </header>
+      <main class="main">
+        <section class="pane">
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <button id="toggle-explorer" class="toggle-explorer" type="button">Explorer</button>
+              <span id="active-file-label" class="active-file-label"></span>
+            </div>
+            <div class="actions">
+              <button id="reset">Reset</button>
+              <button id="run" class="primary" disabled>Run</button>
+            </div>
+          </div>
+          <div id="editor-workbench" class="editor-workbench">
+            <aside class="explorer" aria-label="File explorer">
+              <div class="explorer-header">
+                <span class="explorer-title">Explorer</span>
+                <div class="explorer-actions">
+                  <button id="new-file" class="icon-button" type="button" title="New file">+</button>
+                  <button id="rename-file" class="icon-button" type="button" title="Rename active file">↵</button>
+                  <button id="delete-file" class="icon-button" type="button" title="Delete active file">−</button>
+                </div>
+              </div>
+              <ul id="explorer-tree" class="explorer-tree"></ul>
+            </aside>
+            <div id="editor"></div>
+          </div>
+        </section>
+        <button id="splitter" class="splitter" type="button" aria-label="Resize editor and preview panes"></button>
+        <section class="pane">
+          <div class="toolbar">
+            <span class="toolbar-title">DDC iframe preview</span>
+          </div>
+          <div class="preview">
+            <iframe id="preview" src="adapters/jaspr/preview.html" sandbox="allow-scripts allow-same-origin"></iframe>
+            <pre id="log">Waiting for compiler...</pre>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/loader.js"></script>
+    <script type="module">
+      const defaultWorkspace = {
+        '/pubspec.yaml': `name: jaspr_browser_playground
+description: A Jaspr playground that compiles in the browser.
+environment:
+  sdk: ^3.8.0
+
+dependencies:
+  jaspr: any
+`,
+        '/lib/main.dart': `import 'package:jaspr/client.dart';
+import 'components/counter.dart';
+
+void main() {
+  Jaspr.initializeApp();
+  runApp(const PlaygroundApp(), attachTo: '#app');
+}
+`,
+        '/lib/components/counter.dart': `import 'package:jaspr/client.dart';
+import 'package:jaspr/dom.dart';
+
+class PlaygroundApp extends StatefulComponent {
+  const PlaygroundApp({super.key});
+
+  @override
+  State<PlaygroundApp> createState() => PlaygroundAppState();
+}
+
+class PlaygroundAppState extends State<PlaygroundApp> {
+  var count = 0;
+
+  @override
+  Component build(BuildContext context) {
+    return div(classes: 'app', [
+      h1([text('Jaspr browser playground')]),
+      p([text('Compiled from multiple files in the browser with DDC.')]),
+      button(
+        events: {
+          'click': (event) {
+            setState(() {
+              count += 1;
+            });
+          },
+        },
+        [text('Clicked $count times')],
+      ),
+    ]);
+  }
+}
+`,
+      };
+      const entrypoint = '/lib/main.dart';
+      const legacySample = `import 'package:jaspr/client.dart';
+import 'package:jaspr/dom.dart';
+
+class PlaygroundApp extends StatefulComponent {
+  const PlaygroundApp({super.key});
+
+  @override
+  State<PlaygroundApp> createState() => PlaygroundAppState();
+}
+
+class PlaygroundAppState extends State<PlaygroundApp> {
+  var count = 0;
+
+  @override
+  Component build(BuildContext context) {
+    return div(classes: 'app', [
+      h1([text('Jaspr browser playground')]),
+      p([text('Compiled locally in the browser with DDC.')]),
+      button(
+        events: {
+          'click': (event) {
+            setState(() {
+              count += 1;
+            });
+          },
+        },
+        [text('Clicked $count times')],
+      ),
+    ]);
+  }
+}
+
+void main() {
+  Jaspr.initializeApp();
+  runApp(const PlaygroundApp(), attachTo: '#app');
+}
+`;
+
+      const status = document.querySelector('#status');
+      const editorHost = document.querySelector('#editor');
+      const editorWorkbench = document.querySelector('#editor-workbench');
+      const toggleExplorerButton = document.querySelector('#toggle-explorer');
+      const activeFileLabel = document.querySelector('#active-file-label');
+      const explorerTree = document.querySelector('#explorer-tree');
+      const newFileButton = document.querySelector('#new-file');
+      const renameFileButton = document.querySelector('#rename-file');
+      const deleteFileButton = document.querySelector('#delete-file');
+      const runButton = document.querySelector('#run');
+      const resetButton = document.querySelector('#reset');
+      const log = document.querySelector('#log');
+      const preview = document.querySelector('#preview');
+      const main = document.querySelector('.main');
+      const splitter = document.querySelector('#splitter');
+      const repoRoot = '.';
+      const toolchainRoot = './toolchain';
+      const LSP_OWNER = 'dart-lsp';
+
+      let compilerReady = false;
+      let previewReady = false;
+      let running = false;
+      let monaco;
+      let editor;
+      let activePath = entrypoint;
+      let workspace = loadWorkspace();
+      let bundledPackageConfig = null;
+      const models = new Map();
+      const lspVersions = new Map();
+      const latestDiagnosticsByUri = new Map();
+      let lspReady = false;
+      let lspRequestId = 1;
+      const lspPendingText = new Map();
+      const lspPending = new Map();
+      const lspNotifyHandlers = new Map();
+      let autorunStarted = false;
+      let requestId = 0;
+      let activeRequestId = 0;
+      let explorerCollapsed = localStorage.getItem('dart-browser-playground-explorer-collapsed') === '1';
+      const autorun = new URLSearchParams(location.search).get('autorun') === '1';
+      const compilerWorker = new Worker('adapters/jaspr/compiler_worker.js');
+
+      function setStatus(value) {
+        status.textContent = value;
+      }
+
+      function appendLog(value) {
+        log.textContent = value;
+      }
+
+      function setRunning(value) {
+        running = value;
+        runButton.disabled = value || !compilerReady || !previewReady;
+      }
+
+      function maybeAutorun() {
+        if (!autorun || autorunStarted || !compilerReady || !previewReady) return;
+        autorunStarted = true;
+        run();
+      }
+
+      function cloneDefaultWorkspace() {
+        return Object.fromEntries(
+          Object.entries(defaultWorkspace).map(([path, source]) => [path, source]),
+        );
+      }
+
+      function loadWorkspace() {
+        const stored = localStorage.getItem('jaspr-ddc-playground-workspace');
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (parsed && typeof parsed === 'object' && typeof parsed[entrypoint] === 'string') {
+              return {
+                ...parsed,
+                '/pubspec.yaml': typeof parsed['/pubspec.yaml'] === 'string'
+                  ? parsed['/pubspec.yaml']
+                  : defaultWorkspace['/pubspec.yaml'],
+              };
+            }
+          } catch (_) {
+            // Fall through to legacy migration/default workspace.
+          }
+        }
+
+        const legacy = localStorage.getItem('jaspr-ddc-playground-source');
+        if (legacy && legacy !== legacySample) {
+          return { ...cloneDefaultWorkspace(), [entrypoint]: legacy };
+        }
+        return cloneDefaultWorkspace();
+      }
+
+      function saveWorkspace() {
+        localStorage.setItem('jaspr-ddc-playground-workspace', JSON.stringify(workspace));
+      }
+
+      function fileUri(path) {
+        return `file:///user${path}`;
+      }
+
+      function displayPath(path) {
+        return path.startsWith('/lib/') ? path.slice('/lib/'.length) : path.slice(1);
+      }
+
+      function normalizeWorkspacePath(path) {
+        let next = String(path || '').trim();
+        if (!next) return null;
+        if (!next.startsWith('/')) next = `/${next}`;
+        next = next.replaceAll('\\', '/').replace(/\/+/g, '/');
+        if (!next.endsWith('.dart')) next = `${next}.dart`;
+        if (!next.startsWith('/lib/')) next = `/lib/${next.replace(/^\/+/, '')}`;
+        if (next.includes('/../') || next.includes('/./')) return null;
+        return next;
+      }
+
+      function languageForPath(path) {
+        if (path.endsWith('.dart')) return 'dart';
+        if (path.endsWith('.yaml') || path.endsWith('.yml')) return 'yaml';
+        return 'plaintext';
+      }
+
+      function sortedPaths() {
+        return Object.keys(workspace).sort((a, b) => {
+          if (a === entrypoint) return -1;
+          if (b === entrypoint) return 1;
+          return a.localeCompare(b);
+        });
+      }
+
+      function pathTree() {
+        const root = { dirs: new Map(), files: [] };
+        for (const path of sortedPaths()) {
+          const parts = path.slice(1).split('/');
+          const file = parts.pop();
+          let node = root;
+          for (const part of parts) {
+            if (!node.dirs.has(part)) node.dirs.set(part, { dirs: new Map(), files: [] });
+            node = node.dirs.get(part);
+          }
+          node.files.push({ name: file, path });
+        }
+        return root;
+      }
+
+      function renderExplorerNode(node, parent, depth) {
+        for (const [name, child] of [...node.dirs.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+          const item = document.createElement('li');
+          const row = document.createElement('div');
+          row.className = 'explorer-node';
+          row.style.paddingLeft = `${8 + depth * 14}px`;
+          row.innerHTML = `<span class="explorer-icon">▾</span><span class="explorer-name"></span>`;
+          row.querySelector('.explorer-name').textContent = name;
+          item.append(row);
+          const list = document.createElement('ul');
+          renderExplorerNode(child, list, depth + 1);
+          item.append(list);
+          parent.append(item);
+        }
+
+        for (const file of node.files.sort((a, b) => a.name.localeCompare(b.name))) {
+          const item = document.createElement('li');
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = `explorer-node${file.path === activePath ? ' active' : ''}`;
+          button.style.paddingLeft = `${8 + depth * 14}px`;
+          button.title = file.path;
+          button.innerHTML = `<span class="explorer-icon">${file.path.endsWith('.dart') ? 'D' : 'Y'}</span><span class="explorer-name"></span>`;
+          button.querySelector('.explorer-name').textContent = file.name;
+          button.addEventListener('click', () => switchFile(file.path));
+          item.append(button);
+          parent.append(item);
+        }
+      }
+
+      function renderExplorer() {
+        explorerTree.replaceChildren();
+        renderExplorerNode(pathTree(), explorerTree, 0);
+        deleteFileButton.disabled = activePath === entrypoint || activePath === '/pubspec.yaml' || sortedPaths().length <= 1;
+        renameFileButton.disabled = activePath === entrypoint || activePath === '/pubspec.yaml';
+      }
+
+      function renderWorkspaceChrome() {
+        activeFileLabel.textContent = activePath;
+        activeFileLabel.title = activePath;
+        renderExplorer();
+      }
+
+      function modelForPath(path) {
+        let model = models.get(path);
+        if (!model) {
+          model = monaco.editor.createModel(
+            workspace[path],
+            languageForPath(path),
+            monaco.Uri.parse(fileUri(path)),
+          );
+          models.set(path, model);
+          lspVersions.set(path, 1);
+        }
+        return model;
+      }
+
+      function switchFile(path) {
+        if (workspace[path] === undefined || !editor) return;
+        activePath = path;
+        editor.setModel(modelForPath(path));
+        renderWorkspaceChrome();
+        requestAnimationFrame(() => editor?.layout());
+      }
+
+      function applyExplorerCollapsed() {
+        editorWorkbench.classList.toggle('explorer-collapsed', explorerCollapsed);
+        toggleExplorerButton.textContent = explorerCollapsed ? 'Show files' : 'Hide files';
+        toggleExplorerButton.setAttribute('aria-expanded', String(!explorerCollapsed));
+        localStorage.setItem('dart-browser-playground-explorer-collapsed', explorerCollapsed ? '1' : '0');
+        requestAnimationFrame(() => editor?.layout());
+      }
+
+      function lspDidOpen(path) {
+        if (!path.endsWith('.dart')) return;
+        if (!lspReady) return;
+        lspNotify('textDocument/didOpen', {
+          textDocument: {
+            uri: fileUri(path),
+            languageId: 'dart',
+            version: lspVersions.get(path) ?? 1,
+            text: workspace[path],
+          },
+        });
+      }
+
+      function lspDidClose(path) {
+        if (!path.endsWith('.dart')) return;
+        if (!lspReady) return;
+        lspNotify('textDocument/didClose', {
+          textDocument: { uri: fileUri(path) },
+        });
+      }
+
+      function createFile() {
+        const requested = prompt('New Dart file path', '/lib/components/new_component.dart');
+        const path = normalizeWorkspacePath(requested);
+        if (!path) return;
+        if (workspace[path] !== undefined) {
+          alert(`File already exists: ${path}`);
+          switchFile(path);
+          return;
+        }
+        workspace[path] = `import 'package:jaspr/dom.dart';\n\n`;
+        saveWorkspace();
+        modelForPath(path);
+        lspDidOpen(path);
+        switchFile(path);
+      }
+
+      function renameActiveFile() {
+        if (activePath === entrypoint || activePath === '/pubspec.yaml') {
+          alert('This file cannot be renamed yet.');
+          return;
+        }
+        const requested = prompt('Rename file', activePath);
+        const nextPath = normalizeWorkspacePath(requested);
+        if (!nextPath || nextPath === activePath) return;
+        if (workspace[nextPath] !== undefined) {
+          alert(`File already exists: ${nextPath}`);
+          return;
+        }
+
+        const source = currentSource();
+        lspDidClose(activePath);
+        const oldModel = models.get(activePath);
+        oldModel?.dispose();
+        models.delete(activePath);
+        lspVersions.delete(activePath);
+        delete workspace[activePath];
+
+        workspace[nextPath] = source;
+        activePath = nextPath;
+        saveWorkspace();
+        editor?.setModel(modelForPath(activePath));
+        lspDidOpen(activePath);
+        renderWorkspaceChrome();
+      }
+
+      function deleteActiveFile() {
+        if (activePath === entrypoint || activePath === '/pubspec.yaml') {
+          alert('This file cannot be deleted.');
+          return;
+        }
+        if (!confirm(`Delete ${activePath}?`)) return;
+
+        lspDidClose(activePath);
+        const oldModel = models.get(activePath);
+        oldModel?.dispose();
+        models.delete(activePath);
+        lspVersions.delete(activePath);
+        delete workspace[activePath];
+        activePath = entrypoint;
+        saveWorkspace();
+        editor?.setModel(modelForPath(activePath));
+        renderWorkspaceChrome();
+      }
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function applySplit(percent) {
+        const next = clamp(percent, 20, 80);
+        document.documentElement.style.setProperty('--editor-fr', `${next}fr`);
+        document.documentElement.style.setProperty('--preview-fr', `${100 - next}fr`);
+        localStorage.setItem('jaspr-ddc-playground-split', String(next));
+        splitter.setAttribute('aria-valuenow', String(Math.round(next)));
+        editor?.layout();
+        requestAnimationFrame(() => editor?.layout());
+      }
+
+      function splitFromPointer(event) {
+        const rect = main.getBoundingClientRect();
+        const vertical = matchMedia('(max-width: 860px)').matches;
+        const position = vertical
+          ? event.clientY - rect.top
+          : event.clientX - rect.left;
+        const size = vertical ? rect.height : rect.width;
+        return (position / size) * 100;
+      }
+
+      function initSplitter() {
+        splitter.setAttribute('role', 'separator');
+        splitter.setAttribute('aria-orientation', 'vertical');
+        splitter.setAttribute('aria-valuemin', '20');
+        splitter.setAttribute('aria-valuemax', '80');
+        applySplit(Number(localStorage.getItem('jaspr-ddc-playground-split')) || 50);
+
+        splitter.addEventListener('pointerdown', (event) => {
+          event.preventDefault();
+          splitter.setPointerCapture(event.pointerId);
+          document.body.classList.add('resizing');
+        });
+
+        splitter.addEventListener('pointermove', (event) => {
+          if (!splitter.hasPointerCapture(event.pointerId)) return;
+          applySplit(splitFromPointer(event));
+        });
+
+        function stopResize(event) {
+          if (splitter.hasPointerCapture(event.pointerId)) {
+            splitter.releasePointerCapture(event.pointerId);
+          }
+          document.body.classList.remove('resizing');
+        }
+
+        splitter.addEventListener('pointerup', stopResize);
+        splitter.addEventListener('pointercancel', stopResize);
+        splitter.addEventListener('keydown', (event) => {
+          const current = Number(localStorage.getItem('jaspr-ddc-playground-split')) || 50;
+          const vertical = matchMedia('(max-width: 860px)').matches;
+          const decrease = vertical ? event.key === 'ArrowUp' : event.key === 'ArrowLeft';
+          const increase = vertical ? event.key === 'ArrowDown' : event.key === 'ArrowRight';
+          if (decrease || increase) {
+            event.preventDefault();
+            applySplit(current + (increase ? 5 : -5));
+          } else if (event.key === 'Home') {
+            event.preventDefault();
+            applySplit(20);
+          } else if (event.key === 'End') {
+            event.preventDefault();
+            applySplit(80);
+          } else if (event.key === 'Enter') {
+            event.preventDefault();
+            applySplit(50);
+          }
+        });
+      }
+
+      function currentSource() {
+        return editor ? editor.getValue() : workspace[activePath];
+      }
+
+      function setSource(value) {
+        editor?.setValue(value);
+      }
+
+      function stripYamlComment(line) {
+        let quote = null;
+        for (let i = 0; i < line.length; i += 1) {
+          const char = line[i];
+          if ((char === '"' || char === "'") && line[i - 1] !== '\\') {
+            quote = quote === char ? null : quote || char;
+          } else if (char === '#' && !quote) {
+            return line.slice(0, i);
+          }
+        }
+        return line;
+      }
+
+      function parseSimplePubspec(source) {
+        const pubspec = {
+          name: null,
+          dependencies: new Set(),
+          unsupportedDependencyKinds: [],
+        };
+        let section = null;
+        let sectionIndent = 0;
+        let dependencyIndent = null;
+
+        for (const rawLine of String(source || '').split(/\r?\n/)) {
+          const line = stripYamlComment(rawLine).replace(/\s+$/, '');
+          if (!line.trim()) continue;
+          const indent = line.match(/^\s*/)[0].length;
+          const trimmed = line.trim();
+          const pair = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*):(?:\s*(.*))?$/);
+          if (!pair) continue;
+
+          const key = pair[1];
+          const value = (pair[2] ?? '').trim();
+          if (indent === 0) {
+            section = null;
+            if (key === 'name') {
+              pubspec.name = value.replace(/^['"]|['"]$/g, '') || null;
+            } else if (key === 'dependencies') {
+              section = 'dependencies';
+              sectionIndent = indent;
+              dependencyIndent = null;
+            }
+            continue;
+          }
+
+          if (section === 'dependencies' && indent > sectionIndent) {
+            if (dependencyIndent === null) dependencyIndent = indent;
+            if (indent !== dependencyIndent) continue;
+            pubspec.dependencies.add(key);
+            if (value === '' || value.startsWith('{')) {
+              pubspec.unsupportedDependencyKinds.push(key);
+            }
+          }
+        }
+
+        return pubspec;
+      }
+
+      async function loadBundledPackageConfig() {
+        if (bundledPackageConfig) return bundledPackageConfig;
+        const response = await fetch(`${toolchainRoot}/web_compiler/package_config.json`);
+        if (!response.ok) {
+          throw new Error(`Failed to load bundled package_config.json: HTTP ${response.status}`);
+        }
+        bundledPackageConfig = await response.json();
+        return bundledPackageConfig;
+      }
+
+      function buildPackageConfigFromPubspec(baseConfig, pubspec) {
+        const packages = Array.isArray(baseConfig?.packages) ? [...baseConfig.packages] : [];
+        const packageNames = new Set(packages.map((pkg) => pkg.name));
+        const requested = [...pubspec.dependencies].filter((name) => name !== 'flutter');
+        const missing = requested.filter((name) => !packageNames.has(name));
+        const unsupported = pubspec.unsupportedDependencyKinds.filter((name) => requested.includes(name));
+        if (missing.length || unsupported.length) {
+          const messages = [];
+          if (missing.length) {
+            messages.push(`Unsupported package(s): ${missing.join(', ')}.`);
+          }
+          if (unsupported.length) {
+            messages.push(`Only bundled hosted/simple dependencies are supported right now; complex dependency syntax found for: ${unsupported.join(', ')}.`);
+          }
+          messages.push(`Bundled packages: ${[...packageNames].sort().join(', ')}.`);
+          throw new Error(messages.join('\n'));
+        }
+
+        if (pubspec.name && /^[A-Za-z_][A-Za-z0-9_]*$/.test(pubspec.name) && !packageNames.has(pubspec.name)) {
+          packages.unshift({
+            name: pubspec.name,
+            rootUri: 'memory:/workspace/',
+            packageUri: 'lib/',
+            languageVersion: '3.8',
+          });
+        }
+
+        return JSON.stringify({ ...baseConfig, packages }, null, 2);
+      }
+
+      function packageImportsForWorkspace() {
+        const imports = new Map();
+        const pattern = /\b(?:import|export|part\s+of)\s+['"]package:([A-Za-z_][A-Za-z0-9_]*)\//g;
+        for (const [path, source] of Object.entries(workspace)) {
+          if (!path.endsWith('.dart')) continue;
+          for (const match of String(source).matchAll(pattern)) {
+            if (!imports.has(match[1])) imports.set(match[1], new Set());
+            imports.get(match[1]).add(path);
+          }
+        }
+        return imports;
+      }
+
+      function validateDeclaredPackageImports(pubspec) {
+        const declared = new Set(pubspec.dependencies);
+        const localName = pubspec.name && /^[A-Za-z_][A-Za-z0-9_]*$/.test(pubspec.name)
+          ? pubspec.name
+          : null;
+        const missing = [];
+        for (const [packageName, paths] of packageImportsForWorkspace()) {
+          if (packageName === localName || declared.has(packageName)) continue;
+          missing.push(`${packageName} imported by ${[...paths].sort().join(', ')}`);
+        }
+        if (missing.length) {
+          throw new Error([
+            'Package imports must be declared in pubspec.yaml dependencies.',
+            ...missing.map((item) => `- ${item}`),
+          ].join('\n'));
+        }
+      }
+
+      async function packageConfigForWorkspace() {
+        const pubspec = parseSimplePubspec(workspace['/pubspec.yaml']);
+        validateDeclaredPackageImports(pubspec);
+        const baseConfig = await loadBundledPackageConfig();
+        return buildPackageConfigFromPubspec(baseConfig, pubspec);
+      }
+
+      async function run() {
+        if (!compilerReady || !previewReady || running || !editor) return;
+        setRunning(true);
+        workspace[activePath] = currentSource();
+        saveWorkspace();
+
+        setStatus('Compiling...');
+        appendLog('Compiling in worker...');
+        activeRequestId = ++requestId;
+        let packageConfig;
+        try {
+          packageConfig = await packageConfigForWorkspace();
+        } catch (error) {
+          setRunning(false);
+          setStatus('Pubspec unsupported');
+          appendLog(String((error && error.message) || error));
+          return;
+        }
+        compilerWorker.postMessage({
+          channel: 'jaspr-ddc-compiler-main',
+          type: 'compile',
+          requestId: activeRequestId,
+          entrypoint,
+          files: workspace,
+          packageConfig,
+        });
+      }
+
+      function loadMonaco() {
+        return new Promise((resolve, reject) => {
+          globalThis.require.config({
+            paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs' },
+          });
+          globalThis.require(['vs/editor/editor.main'], () => resolve(globalThis.monaco), reject);
+        });
+      }
+
+      function registerDart(monaco) {
+        monaco.languages.register({ id: 'dart' });
+        monaco.languages.register({ id: 'yaml' });
+        monaco.languages.setLanguageConfiguration('dart', {
+          comments: { lineComment: '//', blockComment: ['/*', '*/'] },
+          brackets: [['{', '}'], ['[', ']'], ['(', ')']],
+          autoClosingPairs: [
+            { open: '{', close: '}' },
+            { open: '[', close: ']' },
+            { open: '(', close: ')' },
+            { open: "'", close: "'" },
+            { open: '"', close: '"' },
+          ],
+        });
+      }
+
+      function lspSendReq(method, params) {
+        const id = lspRequestId++;
+        return new Promise((resolve, reject) => {
+          lspPending.set(id, { resolve, reject });
+          globalThis.lspSend(JSON.stringify({ jsonrpc: '2.0', id, method, params }));
+        });
+      }
+
+      function lspNotify(method, params) {
+        globalThis.lspSend(JSON.stringify({ jsonrpc: '2.0', method, params }));
+      }
+
+      function lspRangeToMonaco(range) {
+        return {
+          startLineNumber: range.start.line + 1,
+          startColumn: range.start.character + 1,
+          endLineNumber: range.end.line + 1,
+          endColumn: range.end.character + 1,
+        };
+      }
+
+      function monacoPosToLsp(position) {
+        return { line: position.lineNumber - 1, character: position.column - 1 };
+      }
+
+      function lspTextEditToMonaco(edit) {
+        if (!edit?.range) return null;
+        return { range: lspRangeToMonaco(edit.range), text: edit.newText ?? '' };
+      }
+
+      function workspacePathFromUri(uri) {
+        if (!uri?.startsWith('file:///user/')) return null;
+        return uri.slice('file:///user'.length);
+      }
+
+      function lspWorkspaceEditToMonaco(edit) {
+        const edits = [];
+        const pushEdits = (uri, textEdits) => {
+          const resource = monaco.Uri.parse(uri);
+          for (const textEdit of textEdits || []) {
+            const converted = lspTextEditToMonaco(textEdit);
+            if (!converted) continue;
+            edits.push({
+              resource,
+              versionId: undefined,
+              textEdit: converted,
+            });
+          }
+        };
+
+        if (edit?.changes) {
+          for (const [uri, textEdits] of Object.entries(edit.changes)) {
+            pushEdits(uri, textEdits);
+          }
+        }
+        if (edit?.documentChanges) {
+          for (const change of edit.documentChanges) {
+            if (change?.textDocument?.uri && Array.isArray(change.edits)) {
+              pushEdits(change.textDocument.uri, change.edits);
+            }
+          }
+        }
+
+        return { edits };
+      }
+
+      function lspTextEditsToWorkspaceEdit(uri, textEdits) {
+        return lspWorkspaceEditToMonaco({ changes: { [uri]: textEdits } });
+      }
+
+      function applyWorkspaceEdit(workspaceEdit) {
+        const edit = lspWorkspaceEditToMonaco(workspaceEdit);
+        for (const item of edit.edits) {
+          const model = monaco.editor.getModel(item.resource);
+          if (!model) continue;
+          model.applyEdits([item.textEdit]);
+          const path = workspacePathFromUri(item.resource.toString());
+          if (path && workspace[path] !== undefined) {
+            workspace[path] = model.getValue();
+            saveWorkspace();
+            lspDidChange(path, workspace[path]);
+          }
+        }
+        return edit.edits.length > 0;
+      }
+
+      globalThis.lspReceive = (jsonText) => {
+        let message;
+        try { message = JSON.parse(jsonText); } catch { return; }
+        if (message.id !== undefined && (message.result !== undefined || message.error !== undefined)) {
+          const pending = lspPending.get(message.id);
+          if (!pending) return;
+          lspPending.delete(message.id);
+          message.error ? pending.reject(message.error) : pending.resolve(message.result);
+          return;
+        }
+        if (message.method && message.id !== undefined) {
+          const handler = lspNotifyHandlers.get(message.method);
+          const result = handler ? handler(message.params) : null;
+          globalThis.lspSend(JSON.stringify({ jsonrpc: '2.0', id: message.id, result }));
+          return;
+        }
+        if (message.method) {
+          lspNotifyHandlers.get(message.method)?.(message.params);
+        }
+      };
+
+      lspNotifyHandlers.set('textDocument/publishDiagnostics', params => {
+        if (!params?.uri || !editor) return;
+        const model = monaco.editor.getModel(monaco.Uri.parse(params.uri));
+        if (!model) return;
+        latestDiagnosticsByUri.set(params.uri, params.diagnostics ?? []);
+        const severity = {
+          1: monaco.MarkerSeverity.Error,
+          2: monaco.MarkerSeverity.Warning,
+          3: monaco.MarkerSeverity.Info,
+          4: monaco.MarkerSeverity.Hint,
+        };
+        const markers = (params.diagnostics ?? []).map(diagnostic => ({
+          severity: severity[diagnostic.severity] ?? monaco.MarkerSeverity.Info,
+          message: `${diagnostic.message ?? ''}${diagnostic.code ? ` [${diagnostic.code}]` : ''}`,
+          ...lspRangeToMonaco(diagnostic.range),
+        }));
+        monaco.editor.setModelMarkers(model, LSP_OWNER, markers);
+      });
+
+      lspNotifyHandlers.set('workspace/applyEdit', params => {
+        if (!params?.edit) return { applied: false };
+        return { applied: applyWorkspaceEdit(params.edit) };
+      });
+
+      async function initLsp() {
+        try {
+          setStatus('Loading analyzer...');
+          const [lspModule, lspWasm, sdkBuffer, packageBuffer] = await Promise.all([
+            import(`${repoRoot}/dart_lsp.mjs`),
+            fetch(`${repoRoot}/dart_lsp.wasm`),
+            fetch(`${repoRoot}/dart_sdk.sum`).then(r => r.arrayBuffer()),
+            fetch(`${toolchainRoot}/jaspr_dart_packages.bin`).then(r => r.arrayBuffer()),
+          ]);
+          const inst = await (await lspModule.compileStreaming(lspWasm)).instantiate({});
+          inst.invokeMain();
+          globalThis.lspStart(new Uint8Array(sdkBuffer), new Uint8Array(packageBuffer));
+
+          await lspSendReq('initialize', {
+            processId: null,
+            rootUri: 'file:///user',
+            initializationOptions: {
+              completionBudgetMilliseconds: 5000,
+              suggestFromUnimportedLibraries: true,
+              onlyAnalyzeProjectsWithOpenFiles: false,
+              outline: true,
+            },
+            capabilities: {
+              textDocument: {
+                synchronization: { didOpen: true, didChange: true },
+                completion: {
+                  completionItem: {
+                    snippetSupport: false,
+                    resolveSupport: { properties: ['additionalTextEdits', 'detail', 'documentation'] },
+                  },
+                },
+                hover: { contentFormat: ['markdown', 'plaintext'] },
+                publishDiagnostics: { relatedInformation: false },
+              },
+              workspace: { applyEdit: true },
+            },
+            workspaceFolders: [{ uri: 'file:///user', name: 'user' }],
+          });
+          lspNotify('initialized', {});
+          for (const path of sortedPaths().filter((candidate) => candidate.endsWith('.dart'))) {
+            lspNotify('textDocument/didOpen', {
+              textDocument: {
+                uri: fileUri(path),
+                languageId: 'dart',
+                version: lspVersions.get(path) ?? 1,
+                text: workspace[path],
+              },
+            });
+          }
+          lspReady = true;
+          for (const [path, text] of lspPendingText) {
+            lspDidChange(path, text);
+          }
+          lspPendingText.clear();
+          setStatus(compilerReady && previewReady ? 'Ready' : 'Analyzer ready, waiting for compiler');
+        } catch (error) {
+          console.error('[jaspr playground] LSP init failed', error);
+          appendLog(`Analyzer unavailable: ${String((error && error.message) || error)}`);
+          setStatus(compilerReady && previewReady ? 'Ready' : 'Analyzer unavailable');
+        }
+      }
+
+      function lspDidChange(path, text) {
+        if (!path.endsWith('.dart')) return;
+        if (!lspReady) {
+          lspPendingText.set(path, text);
+          return;
+        }
+        const version = (lspVersions.get(path) ?? 1) + 1;
+        lspVersions.set(path, version);
+        lspNotify('textDocument/didChange', {
+          textDocument: { uri: fileUri(path), version },
+          contentChanges: [{ text }],
+        });
+      }
+
+      function registerLspProviders() {
+        monaco.languages.registerCompletionItemProvider('dart', {
+          triggerCharacters: ['.', "'", '"', '/', '@'],
+          async provideCompletionItems(model, position) {
+            if (!lspReady) return { suggestions: [] };
+            const response = await lspSendReq('textDocument/completion', {
+              textDocument: { uri: model.uri.toString() },
+              position: monacoPosToLsp(position),
+              context: { triggerKind: 1 },
+            }).catch(() => null);
+            const items = Array.isArray(response) ? response : response?.items ?? [];
+            const word = model.getWordUntilPosition(position);
+            const fallbackRange = {
+              startLineNumber: position.lineNumber,
+              endLineNumber: position.lineNumber,
+              startColumn: word.startColumn,
+              endColumn: word.endColumn,
+            };
+            return {
+              suggestions: items.map(item => {
+                const edit = item.textEdit ? lspTextEditToMonaco(item.textEdit) : null;
+                return {
+                  label: item.label,
+                  kind: item.kind ?? monaco.languages.CompletionItemKind.Variable,
+                  detail: item.detail,
+                  documentation: typeof item.documentation === 'string'
+                    ? item.documentation
+                    : item.documentation?.value,
+                  insertText: edit?.text ?? item.insertText ?? item.label,
+                  range: edit?.range ?? fallbackRange,
+                  sortText: item.sortText,
+                  filterText: item.filterText,
+                  _lsp: item,
+                };
+              }),
+            };
+          },
+          async resolveCompletionItem(item) {
+            if (!item._lsp?.data) return item;
+            const resolved = await lspSendReq('completionItem/resolve', item._lsp).catch(() => null);
+            if (!resolved) return item;
+            const main = resolved.textEdit ? lspTextEditToMonaco(resolved.textEdit) : null;
+            return {
+              ...item,
+              detail: resolved.detail ?? item.detail,
+              documentation: typeof resolved.documentation === 'string'
+                ? resolved.documentation
+                : resolved.documentation?.value ?? item.documentation,
+              additionalTextEdits: (resolved.additionalTextEdits ?? [])
+                .map(lspTextEditToMonaco)
+                .filter(Boolean),
+              insertText: main?.text ?? item.insertText,
+              range: main?.range ?? item.range,
+            };
+          },
+        });
+
+        monaco.languages.registerHoverProvider('dart', {
+          async provideHover(_model, position) {
+            if (!lspReady) return null;
+            const response = await lspSendReq('textDocument/hover', {
+              textDocument: { uri: _model.uri.toString() },
+              position: monacoPosToLsp(position),
+            }).catch(() => null);
+            if (!response?.contents) return null;
+            const value = Array.isArray(response.contents)
+              ? response.contents.map(item => typeof item === 'string' ? item : item.value).join('\n\n')
+              : typeof response.contents === 'string'
+                ? response.contents
+                : response.contents.value;
+            return {
+              contents: [{ value }],
+              range: response.range ? lspRangeToMonaco(response.range) : undefined,
+            };
+          },
+        });
+
+        monaco.languages.registerCodeActionProvider('dart', {
+          async provideCodeActions(model, range, _context) {
+            if (!lspReady) return { actions: [], dispose() {} };
+            const uri = model.uri.toString();
+            const diagnostics = latestDiagnosticsByUri.get(uri) ?? [];
+
+            const request = (lspRange) =>
+              lspSendReq('textDocument/codeAction', {
+                textDocument: { uri },
+                range: lspRange,
+                context: { diagnostics },
+              }).catch(() => null);
+
+            const requestedRange = {
+              start: { line: range.startLineNumber - 1, character: range.startColumn - 1 },
+              end: { line: range.endLineNumber - 1, character: range.endColumn - 1 },
+            };
+            const diagnosticRanges = diagnostics
+              .filter((diagnostic) => diagnostic.range)
+              .map((diagnostic) => diagnostic.range);
+
+            async function completionImportActions() {
+              const actions = [];
+              const seen = new Set();
+              for (const diagnostic of diagnostics) {
+                if (!diagnostic.range || !/undefined/i.test(diagnostic.message ?? '')) continue;
+                const identifier = model.getValueInRange(lspRangeToMonaco(diagnostic.range)).trim();
+                if (!identifier || seen.has(identifier)) continue;
+
+                const completion = await lspSendReq('textDocument/completion', {
+                  textDocument: { uri },
+                  position: diagnostic.range.end,
+                  context: { triggerKind: 1 },
+                }).catch(() => null);
+                const items = Array.isArray(completion) ? completion : completion?.items ?? [];
+                const match = items.find((item) => item.label === identifier);
+                if (!match) continue;
+
+                const resolved = await lspSendReq('completionItem/resolve', match).catch(() => null);
+                if (!resolved?.additionalTextEdits?.length) continue;
+                seen.add(identifier);
+                actions.push({
+                  title: `Add import for '${identifier}'`,
+                  kind: 'quickfix',
+                  isPreferred: true,
+                  edit: lspTextEditsToWorkspaceEdit(uri, resolved.additionalTextEdits),
+                });
+              }
+              return actions;
+            }
+
+            const results = await Promise.all([
+              request(requestedRange),
+              ...diagnosticRanges.map(request),
+            ]);
+            const deduped = [];
+            const seenTitles = new Set();
+            for (const result of results) {
+              if (!Array.isArray(result)) continue;
+              for (const action of result) {
+                if (!action?.title || seenTitles.has(action.title)) continue;
+                seenTitles.add(action.title);
+                deduped.push(action);
+              }
+            }
+
+            const actions = [...await completionImportActions()];
+            for (const action of deduped) {
+              if (action.edit) {
+                actions.push({
+                  title: action.title,
+                  kind: action.kind ?? 'quickfix',
+                  isPreferred: action.isPreferred,
+                  edit: lspWorkspaceEditToMonaco(action.edit),
+                });
+              } else if (action.command) {
+                actions.push({
+                  title: action.title,
+                  kind: action.kind ?? 'quickfix',
+                  isPreferred: action.isPreferred,
+                  command: {
+                    id: 'dart.lsp.executeCommand',
+                    title: action.title,
+                    arguments: [action.command],
+                  },
+                });
+              }
+            }
+
+            return { actions, dispose() {} };
+          },
+        });
+
+        monaco.editor.registerCommand('dart.lsp.executeCommand', async (_accessor, command) => {
+          if (!command?.command) return;
+          await lspSendReq('workspace/executeCommand', {
+            command: command.command,
+            arguments: command.arguments ?? [],
+          }).catch((error) => console.error('[dart lsp] executeCommand failed', error));
+        });
+      }
+
+      compilerWorker.addEventListener('message', (event) => {
+        const message = event.data;
+        if (message?.channel !== 'jaspr-ddc-compiler-worker') return;
+
+        if (message.type === 'ready') {
+          compilerReady = true;
+          appendLog(`Loaded compiler worker inputs: ${message.packageCount} packages, ${message.fileCount} files.`);
+          setStatus(previewReady ? 'Ready' : 'Compiler ready, waiting for preview');
+          setRunning(false);
+          maybeAutorun();
+          return;
+        }
+
+        if (message.type === 'compiled') {
+          if (message.requestId !== activeRequestId) return;
+          setRunning(false);
+          const compiled = message.compiled;
+          if (!compiled.success) {
+            appendLog((compiled.diagnostics || ['Compile failed.']).join('\n'));
+            setStatus(`Compile failed in ${message.elapsedMs}ms`);
+            return;
+          }
+
+          appendLog(`Compiled in worker in ${message.elapsedMs}ms. Generated ${compiled.javascript.length.toLocaleString()} JS bytes.`);
+          setStatus('Rendering...');
+          preview.contentWindow?.postMessage({
+            channel: 'jaspr-ddc-playground',
+            type: 'run',
+            javascript: compiled.javascript,
+            moduleName: compiled.moduleName,
+            libraryName: compiled.libraryName,
+          }, '*');
+          return;
+        }
+
+        if (message.type === 'error') {
+          if (message.requestId !== undefined && message.requestId !== activeRequestId) return;
+          setRunning(false);
+          appendLog(message.message);
+          setStatus(compilerReady ? 'Compile crashed' : 'Compiler unavailable');
+        }
+      });
+
+      compilerWorker.addEventListener('error', (event) => {
+        setRunning(false);
+        appendLog(`Compiler worker error: ${event.message} (${event.filename}:${event.lineno}:${event.colno})`);
+        setStatus('Compiler unavailable');
+      });
+
+      compilerWorker.addEventListener('messageerror', () => {
+        setRunning(false);
+        appendLog('Compiler worker message could not be cloned.');
+        setStatus('Compiler unavailable');
+      });
+
+      addEventListener('message', (event) => {
+        const message = event.data;
+        if (message?.channel !== 'jaspr-ddc-preview') return;
+        if (message.type === 'preview-ready') {
+          previewReady = true;
+          setStatus(compilerReady ? 'Ready' : 'Preview ready, loading compiler');
+          setRunning(false);
+          maybeAutorun();
+        } else if (message.type === 'rendered') {
+          setStatus('Rendered');
+        } else if (message.type === 'console') {
+          appendLog(`[${message.level}] ${message.message}`);
+        } else if (message.type === 'runtime-error') {
+          appendLog(`Runtime error: ${message.message}`);
+          setStatus('Runtime error');
+        }
+      });
+
+      runButton.addEventListener('click', run);
+      toggleExplorerButton.addEventListener('click', () => {
+        explorerCollapsed = !explorerCollapsed;
+        applyExplorerCollapsed();
+      });
+      newFileButton.addEventListener('click', createFile);
+      renameFileButton.addEventListener('click', renameActiveFile);
+      deleteFileButton.addEventListener('click', deleteActiveFile);
+      resetButton.addEventListener('click', () => {
+        workspace = cloneDefaultWorkspace();
+        activePath = entrypoint;
+        editor?.setModel(null);
+        for (const model of models.values()) model.dispose();
+        models.clear();
+        lspVersions.clear();
+        editor?.setModel(modelForPath(activePath));
+        renderWorkspaceChrome();
+        saveWorkspace();
+        localStorage.removeItem('jaspr-ddc-playground-source');
+        if (lspReady) {
+          for (const path of sortedPaths().filter((candidate) => candidate.endsWith('.dart'))) {
+            lspNotify('textDocument/didOpen', {
+              textDocument: {
+                uri: fileUri(path),
+                languageId: 'dart',
+                version: lspVersions.get(path) ?? 1,
+                text: workspace[path],
+              },
+            });
+          }
+        }
+      });
+
+      initSplitter();
+      monaco = await loadMonaco();
+      registerDart(monaco);
+      renderWorkspaceChrome();
+      applyExplorerCollapsed();
+      editor = monaco.editor.create(editorHost, {
+        model: modelForPath(activePath),
+        theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'vs-dark' : 'vs',
+        automaticLayout: true,
+        fontSize: 13,
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        tabSize: 2,
+        wordBasedSuggestions: 'off',
+      });
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, run);
+      editor.onDidChangeModelContent(() => {
+        const source = currentSource();
+        workspace[activePath] = source;
+        saveWorkspace();
+        lspDidChange(activePath, source);
+      });
+      registerLspProviders();
+      initLsp();
+    </script>
+  </body>
+</html>

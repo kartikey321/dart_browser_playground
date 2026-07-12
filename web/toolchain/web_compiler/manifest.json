@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "preferredTarget": "ddc",
+  "supportedTargets": [
+    "ddc",
+    "dart2js"
+  ],
+  "entrypointUri": "memory:/workspace/main.dart",
+  "librariesUri": "memory:/sdk/libraries.json",
+  "platformDirectoryUri": "memory:/sdk/",
+  "packageConfigUri": "memory:/workspace/.dart_tool/package_config.json",
+  "sourceBundle": {
+    "path": "../jaspr_web_sources.bin",
+    "format": "DPKG",
+    "packageRootUri": "memory:/packages/"
+  },
+  "sdkAssets": {
+    "librariesJson": "./libraries.json",
+    "ddcOutlineDill": "./ddc_outline.dill",
+    "ddcPlatformDill": "./ddc_platform.dill",
+    "ddcModuleLoader": "./ddc_module_loader.js",
+    "dart2jsPlatformDill": "./dart2js_platform.dill"
+  },
+  "ddcCompilerRequest": {
+    "entrypoint": "memory:/workspace/main.dart",
+    "moduleName": "main",
+    "dartSdkSummary": "memory:/sdk/ddc_outline.dill",
+    "libraries": "memory:/sdk/libraries.json",
+    "packageConfig": "memory:/workspace/.dart_tool/package_config.json",
+    "text": {
+      "memory:/workspace/main.dart": "<editor source>",
+      "memory:/workspace/.dart_tool/package_config.json": "./package_config.json",
+      "memory:/sdk/libraries.json": "./libraries.json"
+    },
+    "binary": {
+      "memory:/sdk/ddc_outline.dill": "./ddc_outline.dill"
+    }
+  },
+  "dart2jsCompilerRequest": {
+    "text": {
+      "memory:/workspace/main.dart": "<editor source>",
+      "memory:/workspace/.dart_tool/package_config.json": "./package_config.json",
+      "memory:/sdk/libraries.json": "./libraries.json"
+    },
+    "binary": {
+      "memory:/sdk/dart2js_platform.dill": "./dart2js_platform.dill"
+    }
+  }
+}

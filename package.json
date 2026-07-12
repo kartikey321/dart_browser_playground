@@ -1,0 +1,9 @@
+{
+  "name": "dart-browser-playground",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "cd web && python3 -m http.server 8766",
+    "probe": "node tool/probe_page.mjs"
+  }
+}
