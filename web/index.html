@@ -392,6 +392,7 @@
               <span id="active-file-label" class="active-file-label"></span>
             </div>
             <div class="actions">
+              <button id="pub-get" type="button">Pub get</button>
               <button id="show-packages" type="button">Packages</button>
               <button id="reset">Reset</button>
               <button id="run" class="primary" disabled>Run</button>
@@ -532,6 +533,7 @@ void main() {
       const newFileButton = document.querySelector('#new-file');
       const renameFileButton = document.querySelector('#rename-file');
       const deleteFileButton = document.querySelector('#delete-file');
+      const pubGetButton = document.querySelector('#pub-get');
       const showPackagesButton = document.querySelector('#show-packages');
       const runButton = document.querySelector('#run');
       const resetButton = document.querySelector('#reset');
@@ -564,9 +566,14 @@ void main() {
       let requestId = 0;
       let activeRequestId = 0;
       let pubspecDiagnosticsRequestId = 0;
+      let packageConfig = null;
+      let packageResolutionState = 'dirty';
+      let packageResolutionPubspec = '';
       let explorerCollapsed = localStorage.getItem('dart-browser-playground-explorer-collapsed') === '1';
       const autorun = new URLSearchParams(location.search).get('autorun') === '1';
       const compilerWorker = new Worker('adapters/jaspr/compiler_worker.js');
+
+      setPackageResolutionState('dirty');
 
       function setStatus(value) {
         status.textContent = value;
@@ -579,12 +586,33 @@ void main() {
       function setRunning(value) {
         running = value;
         runButton.disabled = value || !compilerReady || !previewReady;
+        pubGetButton.disabled = value || packageResolutionState === 'resolving';
       }
 
-      function maybeAutorun() {
+      function setPackageResolutionState(nextState) {
+        packageResolutionState = nextState;
+        const label = {
+          dirty: 'Pub get',
+          resolving: 'Resolving...',
+          resolved: 'Pub get',
+          failed: 'Retry Pub get',
+        }[nextState] ?? 'Pub get';
+        pubGetButton.textContent = label;
+        pubGetButton.disabled = running || nextState === 'resolving';
+      }
+
+      function markPubspecDirty() {
+        packageConfig = null;
+        packageResolutionPubspec = '';
+        setPackageResolutionState('dirty');
+      }
+
+      async function maybeAutorun() {
         if (!autorun || autorunStarted || !compilerReady || !previewReady) return;
         autorunStarted = true;
-        run();
+        if (await runPubGet()) {
+          await run();
+        }
       }
 
       function cloneDefaultWorkspace() {
@@ -778,6 +806,7 @@ void main() {
         modelForPath(path);
         lspDidOpen(path);
         switchFile(path);
+        markPubspecDirty();
         void updatePubspecDiagnostics();
       }
 
@@ -808,6 +837,7 @@ void main() {
         editor?.setModel(modelForPath(activePath));
         lspDidOpen(activePath);
         renderWorkspaceChrome();
+        markPubspecDirty();
         void updatePubspecDiagnostics();
       }
 
@@ -828,6 +858,7 @@ void main() {
         saveWorkspace();
         editor?.setModel(modelForPath(activePath));
         renderWorkspaceChrome();
+        markPubspecDirty();
         void updatePubspecDiagnostics();
       }
 
@@ -928,6 +959,32 @@ void main() {
         return buildPackageConfigFromPubspec(baseConfig, pubspec);
       }
 
+      async function runPubGet() {
+        if (packageResolutionState === 'resolving') return false;
+        workspace[activePath] = currentSource();
+        saveWorkspace();
+        setPackageResolutionState('resolving');
+        setStatus('Resolving pubspec...');
+        appendLog('Running Pub get against bundled playground packages...');
+        try {
+          packageConfig = await packageConfigForWorkspace();
+          packageResolutionPubspec = workspace['/pubspec.yaml'];
+          setPackageResolutionState('resolved');
+          setStatus(compilerReady && previewReady ? 'Ready' : 'Pub get resolved');
+          appendLog('Pub get complete. Dependencies resolved from bundled packages.');
+          await updatePubspecDiagnostics();
+          return true;
+        } catch (error) {
+          packageConfig = null;
+          packageResolutionPubspec = '';
+          setPackageResolutionState('failed');
+          setStatus('Pub get failed');
+          appendLog(String((error && error.message) || error));
+          await updatePubspecDiagnostics();
+          return false;
+        }
+      }
+
       async function updatePubspecDiagnostics() {
         if (!monaco) return;
         const currentRequestId = ++pubspecDiagnosticsRequestId;
@@ -966,18 +1023,21 @@ void main() {
         workspace[activePath] = currentSource();
         saveWorkspace();
 
+        if (
+          packageResolutionState !== 'resolved' ||
+          !packageConfig ||
+          packageResolutionPubspec !== workspace['/pubspec.yaml']
+        ) {
+          setRunning(false);
+          markPubspecDirty();
+          setStatus('Run Pub get first');
+          appendLog('Run Pub get before compiling. The compiler uses the last resolved package_config.json.');
+          return;
+        }
+
         setStatus('Compiling...');
         appendLog('Compiling in worker...');
         activeRequestId = ++requestId;
-        let packageConfig;
-        try {
-          packageConfig = await packageConfigForWorkspace();
-        } catch (error) {
-          setRunning(false);
-          setStatus('Pubspec unsupported');
-          appendLog(String((error && error.message) || error));
-          return;
-        }
         compilerWorker.postMessage({
           channel: 'jaspr-ddc-compiler-main',
           type: 'compile',
@@ -1473,6 +1533,7 @@ void main() {
       });
 
       runButton.addEventListener('click', run);
+      pubGetButton.addEventListener('click', runPubGet);
       showPackagesButton.addEventListener('click', showBundledPackages);
       toggleExplorerButton.addEventListener('click', () => {
         explorerCollapsed = !explorerCollapsed;
@@ -1492,6 +1553,7 @@ void main() {
         renderWorkspaceChrome();
         saveWorkspace();
         localStorage.removeItem('jaspr-ddc-playground-source');
+        markPubspecDirty();
         if (lspReady) {
           for (const path of sortedPaths().filter((candidate) => candidate.endsWith('.dart'))) {
             lspNotify('textDocument/didOpen', {
@@ -1527,6 +1589,7 @@ void main() {
         const source = currentSource();
         workspace[activePath] = source;
         saveWorkspace();
+        markPubspecDirty();
         lspDidChange(activePath, source);
         void updatePubspecDiagnostics();
       });
