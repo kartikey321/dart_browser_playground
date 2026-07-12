@@ -2,7 +2,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
+  addDependencyToPubspec,
   buildPackageConfigFromPubspec,
+  missingDeclaredPackageImports,
   parseSimplePubspec,
   validateDeclaredPackageImports,
 } from '../web/lib/pubspec.js';
@@ -63,6 +65,26 @@ const undeclaredMessage = assertThrows(
   }),
   'Package imports must be declared',
 );
+const missing = missingDeclaredPackageImports(pubspec, {
+  '/lib/main.dart': `import 'package:web/web.dart';`,
+});
+assert(missing.length === 1 && missing[0].packageName === 'web', 'Expected missing web dependency.');
+
+const patchedPubspec = addDependencyToPubspec(`
+name: sample_app
+dependencies:
+  jaspr: any
+dev_dependencies:
+  lints: any
+`, 'web');
+assert(
+  patchedPubspec.includes('dependencies:\n  jaspr: any\n  web: any\ndev_dependencies:'),
+  'Expected dependency to be inserted before dev_dependencies.',
+);
+assert(
+  addDependencyToPubspec(patchedPubspec, 'web') === patchedPubspec,
+  'Expected duplicate dependency insertion to be a no-op.',
+);
 
 const unsupportedMessage = assertThrows(
   () => buildPackageConfigFromPubspec(baseConfig, parseSimplePubspec(`
@@ -78,6 +100,7 @@ console.log(
     {
       ok: true,
       localPackage: packageConfig.packages[0].name,
+      patchedPubspec,
       undeclaredMessage,
       unsupportedMessage,
     },

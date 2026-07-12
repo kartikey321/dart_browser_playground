@@ -70,6 +70,17 @@ export function packageImportsForWorkspace(workspace) {
 }
 
 export function validateDeclaredPackageImports(pubspec, workspace) {
+  const missing = missingDeclaredPackageImports(pubspec, workspace);
+  if (missing.length) {
+    throw new Error([
+      'Package imports must be declared in pubspec.yaml dependencies.',
+      ...missing.map(({ packageName, paths }) => `${packageName} imported by ${paths.join(', ')}`)
+        .map((item) => `- ${item}`),
+    ].join('\n'));
+  }
+}
+
+export function missingDeclaredPackageImports(pubspec, workspace) {
   const declared = new Set(pubspec.dependencies);
   const localName = pubspec.name && /^[A-Za-z_][A-Za-z0-9_]*$/.test(pubspec.name)
     ? pubspec.name
@@ -77,14 +88,9 @@ export function validateDeclaredPackageImports(pubspec, workspace) {
   const missing = [];
   for (const [packageName, paths] of packageImportsForWorkspace(workspace)) {
     if (packageName === localName || declared.has(packageName)) continue;
-    missing.push(`${packageName} imported by ${[...paths].sort().join(', ')}`);
+    missing.push({ packageName, paths: [...paths].sort() });
   }
-  if (missing.length) {
-    throw new Error([
-      'Package imports must be declared in pubspec.yaml dependencies.',
-      ...missing.map((item) => `- ${item}`),
-    ].join('\n'));
-  }
+  return missing.sort((a, b) => a.packageName.localeCompare(b.packageName));
 }
 
 export function bundledPackageNames(baseConfig) {
@@ -119,4 +125,35 @@ export function buildPackageConfigFromPubspec(baseConfig, pubspec) {
   }
 
   return JSON.stringify({ ...baseConfig, packages }, null, 2);
+}
+
+export function addDependencyToPubspec(source, packageName, constraint = 'any') {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(packageName)) {
+    throw new Error(`Invalid package name: ${packageName}`);
+  }
+
+  const pubspec = parseSimplePubspec(source);
+  if (pubspec.dependencies.has(packageName)) return String(source || '');
+
+  const text = String(source || '').replace(/\s*$/, '');
+  const dependencyLine = `  ${packageName}: ${constraint}`;
+  const lines = text ? text.split(/\r?\n/) : [];
+  const dependenciesIndex = lines.findIndex((line) => /^dependencies:\s*(?:#.*)?$/.test(stripYamlComment(line).trim()));
+
+  if (dependenciesIndex === -1) {
+    return `${text}${text ? '\n\n' : ''}dependencies:\n${dependencyLine}\n`;
+  }
+
+  let insertAt = lines.length;
+  for (let i = dependenciesIndex + 1; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    if (!line.startsWith(' ') && !line.startsWith('\t')) {
+      insertAt = i;
+      break;
+    }
+  }
+
+  lines.splice(insertAt, 0, dependencyLine);
+  return `${lines.join('\n')}\n`;
 }

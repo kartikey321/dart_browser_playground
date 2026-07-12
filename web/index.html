@@ -429,8 +429,10 @@
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/loader.js"></script>
     <script type="module">
       import {
+        addDependencyToPubspec,
         buildPackageConfigFromPubspec,
         bundledPackageNames,
+        missingDeclaredPackageImports,
         parseSimplePubspec,
         validateDeclaredPackageImports,
       } from './lib/pubspec.js';
@@ -1053,6 +1055,17 @@ void main() {
         }
       }
 
+      function addDependency(packageName) {
+        const next = addDependencyToPubspec(workspace['/pubspec.yaml'], packageName);
+        workspace['/pubspec.yaml'] = next;
+        saveWorkspace();
+        const pubspecModel = modelForPath('/pubspec.yaml');
+        if (pubspecModel.getValue() !== next) pubspecModel.setValue(next);
+        markPubspecDirty();
+        void updatePubspecDiagnostics();
+        appendLog(`Added ${packageName}: any to pubspec.yaml. Run Pub get to resolve it.`);
+      }
+
       async function run() {
         if (!compilerReady || !previewReady || running || !editor) return;
         setRunning(true);
@@ -1442,6 +1455,29 @@ void main() {
               return actions;
             }
 
+            async function dependencyActions() {
+              const path = workspacePathFromUri(uri);
+              if (!path) return [];
+              const pubspec = parseSimplePubspec(workspace['/pubspec.yaml']);
+              const missing = missingDeclaredPackageImports(pubspec, { [path]: model.getValue() });
+              if (!missing.length) return [];
+
+              const baseConfig = await loadBundledPackageConfig().catch(() => null);
+              const bundled = bundledPackageNames(baseConfig);
+              return missing
+                .filter(({ packageName }) => bundled.has(packageName))
+                .map(({ packageName }) => ({
+                  title: `Add '${packageName}' to pubspec.yaml`,
+                  kind: 'quickfix',
+                  isPreferred: true,
+                  command: {
+                    id: 'dart.playground.addDependency',
+                    title: `Add '${packageName}' to pubspec.yaml`,
+                    arguments: [packageName],
+                  },
+                }));
+            }
+
             const results = await Promise.all([
               request(requestedRange),
               ...diagnosticRanges.map(request),
@@ -1457,7 +1493,10 @@ void main() {
               }
             }
 
-            const actions = [...await completionImportActions()];
+            const actions = [
+              ...await completionImportActions(),
+              ...await dependencyActions(),
+            ];
             for (const action of deduped) {
               if (action.edit) {
                 actions.push({
@@ -1490,6 +1529,10 @@ void main() {
             command: command.command,
             arguments: command.arguments ?? [],
           }).catch((error) => console.error('[dart lsp] executeCommand failed', error));
+        });
+
+        monaco.editor.registerCommand('dart.playground.addDependency', (_accessor, packageName) => {
+          addDependency(packageName);
         });
       }
 

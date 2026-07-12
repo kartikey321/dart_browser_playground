@@ -43,6 +43,7 @@ The current shell supports:
 - file create, rename, and delete
 - editable `pubspec.yaml` with validation against bundled packages
 - live `pubspec.yaml` diagnostics for unsupported or undeclared package imports
+- quick actions to add missing bundled package imports to `pubspec.yaml`
 - explicit Pub get flow that generates the in-memory package config before compile
 - bundled package inspection from the Packages button
 - browser worker compilation
