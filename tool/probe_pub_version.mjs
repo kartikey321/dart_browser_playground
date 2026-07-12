@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import {
+  allowsAllConstraints,
   allowsVersion,
   bestVersion,
   compareVersions,
@@ -25,6 +26,8 @@ assert(allowsVersion('^0.2.3', '0.2.9'), 'Expected caret minor range for zero ma
 assert(!allowsVersion('^0.2.3', '0.3.0'), 'Expected caret minor upper bound for zero major.');
 assert(allowsVersion('^0.0.3', '0.0.3'), 'Expected caret patch range for zero major/minor.');
 assert(!allowsVersion('^0.0.3', '0.0.4'), 'Expected caret patch upper bound for zero major/minor.');
+assert(allowsAllConstraints(['^1.0.0', '<1.6.0'], '1.5.0'), 'Expected multiple constraints match.');
+assert(!allowsAllConstraints(['^1.0.0', '<1.5.0'], '1.5.0'), 'Expected multiple constraints mismatch.');
 
 assert(
   bestVersion(['1.0.0', '1.5.0', '2.0.0'], '^1.0.0') === '1.5.0',

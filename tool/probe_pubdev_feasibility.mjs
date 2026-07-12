@@ -6,6 +6,7 @@ import {
   tarFileText,
   verifySha256,
 } from '../web/lib/package_archive.js';
+import { resolveHostedDependencies } from '../web/lib/pub_resolver.js';
 import { bestVersion } from '../web/lib/pub_version.js';
 
 const origin = process.env.ORIGIN || 'http://localhost:8766';
@@ -42,6 +43,7 @@ const packageText = packageArchiveToMemoryText(metadata.name, archiveFiles);
 const packageMainLibrary = `memory:/packages/${metadata.name}/lib/${metadata.name}.dart`;
 const constraint = process.env.CONSTRAINT || '^1.0.0';
 const bestCompatibleVersion = bestVersion(metadata.versions, constraint);
+const resolved = await resolveHostedDependencies({ [metadata.name]: constraint }, source);
 
 console.log(
   JSON.stringify(
@@ -53,6 +55,8 @@ console.log(
       versionCount: metadata.versions.length,
       constraint,
       bestCompatibleVersion,
+      resolvedPackageCount: resolved.packages.length,
+      resolvedPackages: Object.fromEntries(resolved.packages.map((pkg) => [pkg.packageName, pkg.version])),
       archiveUrl: metadata.latest.archiveUrl,
       archiveSha256: metadata.latest.archiveSha256,
       archiveSha256Verified: archiveVerification.ok,

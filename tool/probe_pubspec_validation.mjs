@@ -43,6 +43,7 @@ dev_dependencies:
 assert(pubspec.name === 'sample_app', 'Expected pubspec name to parse.');
 assert(pubspec.dependencies.has('jaspr'), 'Expected jaspr dependency to parse.');
 assert(pubspec.dependencies.has('http'), 'Expected http dependency to parse.');
+assert(pubspec.dependencyConstraints.http === '^1.0.0', 'Expected http constraint to parse.');
 assert(!pubspec.dependencies.has('lints'), 'Expected dev_dependencies to be ignored.');
 
 validateDeclaredPackageImports(pubspec, {

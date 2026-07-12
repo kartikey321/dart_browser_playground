@@ -47,6 +47,10 @@ export function allowsVersion(constraintInput, versionInput) {
   });
 }
 
+export function allowsAllConstraints(constraintInputs, versionInput) {
+  return constraintInputs.every((constraint) => allowsVersion(constraint, versionInput));
+}
+
 export function bestVersion(versions, constraintInput = 'any', { includePrerelease = false } = {}) {
   const constraint = parseConstraint(constraintInput);
   return versions

@@ -15,6 +15,7 @@ export function parseSimplePubspec(source) {
   const pubspec = {
     name: null,
     dependencies: new Set(),
+    dependencyConstraints: {},
     unsupportedDependencyKinds: [],
   };
   let section = null;
@@ -45,11 +46,13 @@ export function parseSimplePubspec(source) {
 
     if (section === 'dependencies' && indent > sectionIndent) {
       if (dependencyIndent === null) dependencyIndent = indent;
-      if (indent !== dependencyIndent) continue;
-      pubspec.dependencies.add(key);
-      if (value === '' || value.startsWith('{')) {
-        pubspec.unsupportedDependencyKinds.push(key);
-      }
+          if (indent !== dependencyIndent) continue;
+          pubspec.dependencies.add(key);
+          if (value === '' || value.startsWith('{')) {
+            pubspec.unsupportedDependencyKinds.push(key);
+          } else {
+            pubspec.dependencyConstraints[key] = value.replace(/^['"]|['"]$/g, '') || 'any';
+          }
     }
   }
 

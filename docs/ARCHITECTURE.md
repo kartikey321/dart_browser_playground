@@ -69,6 +69,7 @@ See `PUBDEV_BROWSER_RESOLUTION.md` for the live pub.dev feasibility probe and pr
 
 - `tool/probe_pubspec_validation.mjs` for parser/import/package-config validation
 - `tool/probe_pub_version.mjs` for pub-style version constraints and best-version selection
+- `tool/probe_pub_resolver.mjs` for simple hosted transitive dependency resolution
 - `tool/probe_hosted_pub_source.mjs` for the hosted pub source client without network access
 - `tool/probe_package_archive.mjs` for gzip/TAR package archive parsing without network access
 - `tool/probe_page.mjs` for browser page wiring
