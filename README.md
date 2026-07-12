@@ -32,6 +32,12 @@ Validate page wiring:
 npm run probe
 ```
 
+Check live pub.dev browser-fetch feasibility:
+
+```sh
+npm run probe:pubdev
+```
+
 The current shell supports:
 
 - Monaco editor
@@ -52,3 +58,5 @@ The current shell supports:
 - resizable editor/preview panes
 
 `pubspec.yaml` support is intentionally staged. The playground currently accepts dependencies that are already bundled into the static toolchain, requires direct `package:` imports to be declared in `dependencies:`, and shows a clear error for unsupported packages. It does not yet perform full browser-side `pub get`, version solving, archive downloading, or package cache generation.
+
+See `docs/PUBDEV_BROWSER_RESOLUTION.md` for the researched path toward real browser-side pub.dev dependency resolution.

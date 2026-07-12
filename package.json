@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "serve": "cd web && python3 -m http.server 8766",
-    "probe": "node tool/probe_pubspec_validation.mjs && node tool/probe_page.mjs && node tool/probe_jaspr_multifile.mjs"
+    "probe": "node tool/probe_pubspec_validation.mjs && node tool/probe_page.mjs && node tool/probe_jaspr_multifile.mjs",
+    "probe:pubdev": "node tool/probe_pubdev_feasibility.mjs"
   }
 }

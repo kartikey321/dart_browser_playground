@@ -61,6 +61,8 @@ The Dart code action provider also adds playground-specific quick fixes. If a Da
 
 This is not a full `pub get` implementation yet. Real browser-side dependency support still needs a package metadata source, version solver, archive fetch/unpack flow, cache model, transitive graph handling, and lockfile/package-config generation.
 
+See `PUBDEV_BROWSER_RESOLUTION.md` for the live pub.dev feasibility probe and proposed browser-side resolver architecture.
+
 ## Probes
 
 `npm run probe` runs:
@@ -68,3 +70,5 @@ This is not a full `pub get` implementation yet. Real browser-side dependency su
 - `tool/probe_pubspec_validation.mjs` for parser/import/package-config validation
 - `tool/probe_page.mjs` for browser page wiring
 - `tool/probe_jaspr_multifile.mjs` for direct DDC multi-file compilation
+
+`npm run probe:pubdev` runs the live pub.dev CORS/API/archive feasibility check separately from the local probe suite.
