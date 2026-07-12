@@ -70,7 +70,7 @@ analyzer + compiler worker
 2. Add a `HostedPubPackageSource` module that can fetch metadata for one package. (`web/lib/hosted_pub_source.js`)
 3. Add a package archive fetch/unpack probe for one small package. (`web/lib/package_archive.js`)
 4. Add package source caching in IndexedDB.
-5. Port or implement a minimal Pubgrub-compatible solver over fetched metadata.
+5. Port or implement a minimal Pubgrub-compatible solver over fetched metadata. The current first step is `web/lib/pub_version.js`, which supports pub-style version comparison, ranges, caret constraints, and best-version selection for a single package.
 6. Generate `package_config.json` from the solved graph.
 7. Feed downloaded package sources into the analyzer and compiler workers.
 
@@ -100,6 +100,7 @@ This keeps the browser playground aligned with client-side Dart/Jaspr examples a
 
 - `web/lib/hosted_pub_source.js` contains the browser-compatible hosted source client.
 - `web/lib/package_archive.js` contains browser-compatible gzip/TAR archive parsing, SHA-256 verification, and archive-to-virtual-package text mapping.
+- `web/lib/pub_version.js` contains the browser-compatible version/constraint helper used before full transitive solving exists.
 - `tool/probe_hosted_pub_source.mjs` tests the hosted source client without network access.
 - `tool/probe_package_archive.mjs` tests archive parsing without network access.
 - `tool/probe_pubdev_feasibility.mjs` verifies live pub.dev metadata/archive CORS behavior.

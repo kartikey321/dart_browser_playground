@@ -6,6 +6,7 @@ import {
   tarFileText,
   verifySha256,
 } from '../web/lib/package_archive.js';
+import { bestVersion } from '../web/lib/pub_version.js';
 
 const origin = process.env.ORIGIN || 'http://localhost:8766';
 const packageName = process.env.PACKAGE || 'http';
@@ -39,6 +40,8 @@ if (!pubspecPath) {
 const libFileCount = [...archiveFiles.keys()].filter((path) => path.startsWith('lib/') && path.endsWith('.dart')).length;
 const packageText = packageArchiveToMemoryText(metadata.name, archiveFiles);
 const packageMainLibrary = `memory:/packages/${metadata.name}/lib/${metadata.name}.dart`;
+const constraint = process.env.CONSTRAINT || '^1.0.0';
+const bestCompatibleVersion = bestVersion(metadata.versions, constraint);
 
 console.log(
   JSON.stringify(
@@ -48,6 +51,8 @@ console.log(
       packageName: metadata.name,
       latestVersion: metadata.latest.version,
       versionCount: metadata.versions.length,
+      constraint,
+      bestCompatibleVersion,
       archiveUrl: metadata.latest.archiveUrl,
       archiveSha256: metadata.latest.archiveSha256,
       archiveSha256Verified: archiveVerification.ok,
