@@ -53,7 +53,7 @@ memory:/workspace/.dart_tool/package_config.json
 
 The shell exposes dependencies through an editable `/pubspec.yaml`. For now the shell parses only the direct `dependencies:` section, validates that requested packages exist in the bundled toolchain package config, validates that direct Dart `package:` imports are declared, and sends a generated in-memory `package_config.json` to the compiler worker.
 
-The Pub get button performs this bundled-package resolution explicitly. Compile uses the last successful Pub get result and is blocked when the workspace has changed since that result. The Packages button lists the package names currently available in the bundled static toolchain.
+The Pub get button performs this bundled-package resolution explicitly. Compile uses the last successful Pub get result and is blocked when `pubspec.yaml` or Dart `package:` imports have changed since that result. Plain source edits that do not affect package imports keep the resolved package config valid. The Packages button lists the package names currently available in the bundled static toolchain.
 
 This is not a full `pub get` implementation yet. Real browser-side dependency support still needs a package metadata source, version solver, archive fetch/unpack flow, cache model, transitive graph handling, and lockfile/package-config generation.
 

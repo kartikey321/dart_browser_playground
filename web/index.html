@@ -569,6 +569,7 @@ void main() {
       let packageConfig = null;
       let packageResolutionState = 'dirty';
       let packageResolutionPubspec = '';
+      let packageResolutionImportFingerprint = '';
       let explorerCollapsed = localStorage.getItem('dart-browser-playground-explorer-collapsed') === '1';
       const autorun = new URLSearchParams(location.search).get('autorun') === '1';
       const compilerWorker = new Worker('adapters/jaspr/compiler_worker.js');
@@ -604,7 +605,40 @@ void main() {
       function markPubspecDirty() {
         packageConfig = null;
         packageResolutionPubspec = '';
+        packageResolutionImportFingerprint = '';
         setPackageResolutionState('dirty');
+      }
+
+      function markDependenciesDirtyIfNeeded(previousPath, previousSource) {
+        if (packageResolutionState !== 'resolved') return;
+        if (previousPath === '/pubspec.yaml') {
+          if (previousSource !== workspace['/pubspec.yaml']) markPubspecDirty();
+          return;
+        }
+        if (previousPath?.endsWith('.dart')) {
+          const currentFingerprint = packageImportFingerprint();
+          if (currentFingerprint !== packageResolutionImportFingerprint) markPubspecDirty();
+        }
+      }
+
+      function packageImportFingerprint() {
+        const imports = [];
+        const pattern = /\b(?:import|export|part\s+of)\s+['"]package:([A-Za-z_][A-Za-z0-9_]*)\//g;
+        for (const [path, source] of Object.entries(workspace)) {
+          if (!path.endsWith('.dart')) continue;
+          const names = [...String(source).matchAll(pattern)].map((match) => match[1]).sort();
+          if (names.length) imports.push(`${path}:${names.join(',')}`);
+        }
+        return imports.sort().join('|');
+      }
+
+      function packageResolutionIsCurrent() {
+        return (
+          packageResolutionState === 'resolved' &&
+          Boolean(packageConfig) &&
+          packageResolutionPubspec === workspace['/pubspec.yaml'] &&
+          packageResolutionImportFingerprint === packageImportFingerprint()
+        );
       }
 
       async function maybeAutorun() {
@@ -969,6 +1003,7 @@ void main() {
         try {
           packageConfig = await packageConfigForWorkspace();
           packageResolutionPubspec = workspace['/pubspec.yaml'];
+          packageResolutionImportFingerprint = packageImportFingerprint();
           setPackageResolutionState('resolved');
           setStatus(compilerReady && previewReady ? 'Ready' : 'Pub get resolved');
           appendLog('Pub get complete. Dependencies resolved from bundled packages.');
@@ -977,6 +1012,7 @@ void main() {
         } catch (error) {
           packageConfig = null;
           packageResolutionPubspec = '';
+          packageResolutionImportFingerprint = '';
           setPackageResolutionState('failed');
           setStatus('Pub get failed');
           appendLog(String((error && error.message) || error));
@@ -1024,9 +1060,7 @@ void main() {
         saveWorkspace();
 
         if (
-          packageResolutionState !== 'resolved' ||
-          !packageConfig ||
-          packageResolutionPubspec !== workspace['/pubspec.yaml']
+          !packageResolutionIsCurrent()
         ) {
           setRunning(false);
           markPubspecDirty();
@@ -1586,10 +1620,11 @@ void main() {
       });
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, run);
       editor.onDidChangeModelContent(() => {
+        const previousSource = workspace[activePath];
         const source = currentSource();
         workspace[activePath] = source;
         saveWorkspace();
-        markPubspecDirty();
+        markDependenciesDirtyIfNeeded(activePath, previousSource);
         lspDidChange(activePath, source);
         void updatePubspecDiagnostics();
       });
