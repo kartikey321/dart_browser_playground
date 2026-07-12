@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { HostedPubPackageSource } from '../web/lib/hosted_pub_source.js';
-import { parseTarGz, tarFileText } from '../web/lib/package_archive.js';
+import { parseTarGz, tarFileText, verifySha256 } from '../web/lib/package_archive.js';
 
 const origin = process.env.ORIGIN || 'http://localhost:8766';
 const packageName = process.env.PACKAGE || 'http';
@@ -21,7 +21,12 @@ const archiveResponse = await fetch(metadata.latest.archiveUrl, {
 if (!archiveResponse.ok) {
   throw new Error(`Archive download failed: ${archiveResponse.status} ${archiveResponse.statusText}`);
 }
-const archiveFiles = await parseTarGz(await archiveResponse.arrayBuffer());
+const archiveBuffer = await archiveResponse.arrayBuffer();
+const archiveVerification = await verifySha256(archiveBuffer, metadata.latest.archiveSha256);
+if (!archiveVerification.ok) {
+  throw new Error(`Archive SHA-256 mismatch: expected ${archiveVerification.expectedHex}, got ${archiveVerification.actualHex}`);
+}
+const archiveFiles = await parseTarGz(archiveBuffer);
 const pubspecPath = [...archiveFiles.keys()].find((path) => path === 'pubspec.yaml' || path.endsWith('/pubspec.yaml'));
 if (!pubspecPath) {
   throw new Error('Downloaded archive does not contain pubspec.yaml.');
@@ -38,6 +43,7 @@ console.log(
       versionCount: metadata.versions.length,
       archiveUrl: metadata.latest.archiveUrl,
       archiveSha256: metadata.latest.archiveSha256,
+      archiveSha256Verified: archiveVerification.ok,
       metadataCors: metadata.corsHeader,
       archiveCors: archive.corsHeader,
       archiveContentLength: archive.contentLength,

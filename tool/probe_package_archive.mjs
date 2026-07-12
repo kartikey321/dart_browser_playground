@@ -3,7 +3,9 @@ import { gzipSync } from 'node:zlib';
 import {
   parseTar,
   parseTarGz,
+  sha256Hex,
   tarFileText,
+  verifySha256,
 } from '../web/lib/package_archive.js';
 
 function assert(condition, message) {
@@ -47,10 +49,14 @@ const tar = new Uint8Array([
   ...new Uint8Array(1024),
 ]);
 const gzip = gzipSync(tar);
+const gzipSha256 = await sha256Hex(gzip);
+const verification = await verifySha256(gzip, gzipSha256);
 
 const plainFiles = parseTar(tar);
 const gzFiles = await parseTarGz(gzip);
 
+assert(verification.ok, 'Expected SHA-256 verification to pass.');
+assert((await verifySha256(gzip, '00')).ok === false, 'Expected SHA-256 mismatch to fail.');
 assert(plainFiles.size === 2, 'Expected two files from plain tar.');
 assert(gzFiles.size === 2, 'Expected two files from tar.gz.');
 assert(tarFileText(gzFiles, 'package/pubspec.yaml').includes('name: demo'), 'Expected pubspec text.');
@@ -62,6 +68,7 @@ console.log(
       ok: true,
       plainFiles: plainFiles.size,
       gzipBytes: gzip.length,
+      gzipSha256,
       pubspec: tarFileText(gzFiles, 'package/pubspec.yaml'),
     },
     null,

@@ -42,9 +42,32 @@ export async function parseTarGz(buffer) {
   return parseTar(await decompressGzip(buffer));
 }
 
+export async function sha256Hex(buffer) {
+  if (!globalThis.crypto?.subtle?.digest) {
+    throw new Error('SHA-256 verification requires WebCrypto crypto.subtle.digest.');
+  }
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', buffer);
+  return bytesToHex(new Uint8Array(digest));
+}
+
+export async function verifySha256(buffer, expectedHex) {
+  if (!expectedHex) return { ok: true, actualHex: null, expectedHex: null };
+  const normalizedExpected = String(expectedHex).toLowerCase();
+  const actualHex = await sha256Hex(buffer);
+  return {
+    ok: actualHex === normalizedExpected,
+    actualHex,
+    expectedHex: normalizedExpected,
+  };
+}
+
 export function tarFileText(files, path) {
   const bytes = files.get(path);
   return bytes ? textDecoder.decode(bytes) : null;
+}
+
+function bytesToHex(bytes) {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 function isZeroBlock(block) {
