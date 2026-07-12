@@ -542,6 +542,7 @@ void main() {
       const repoRoot = '.';
       const toolchainRoot = './toolchain';
       const LSP_OWNER = 'dart-lsp';
+      const PUBSPEC_OWNER = 'pubspec-validation';
 
       let compilerReady = false;
       let previewReady = false;
@@ -562,6 +563,7 @@ void main() {
       let autorunStarted = false;
       let requestId = 0;
       let activeRequestId = 0;
+      let pubspecDiagnosticsRequestId = 0;
       let explorerCollapsed = localStorage.getItem('dart-browser-playground-explorer-collapsed') === '1';
       const autorun = new URLSearchParams(location.search).get('autorun') === '1';
       const compilerWorker = new Worker('adapters/jaspr/compiler_worker.js');
@@ -776,6 +778,7 @@ void main() {
         modelForPath(path);
         lspDidOpen(path);
         switchFile(path);
+        void updatePubspecDiagnostics();
       }
 
       function renameActiveFile() {
@@ -805,6 +808,7 @@ void main() {
         editor?.setModel(modelForPath(activePath));
         lspDidOpen(activePath);
         renderWorkspaceChrome();
+        void updatePubspecDiagnostics();
       }
 
       function deleteActiveFile() {
@@ -824,6 +828,7 @@ void main() {
         saveWorkspace();
         editor?.setModel(modelForPath(activePath));
         renderWorkspaceChrome();
+        void updatePubspecDiagnostics();
       }
 
       function clamp(value, min, max) {
@@ -921,6 +926,28 @@ void main() {
         validateDeclaredPackageImports(pubspec, workspace);
         const baseConfig = await loadBundledPackageConfig();
         return buildPackageConfigFromPubspec(baseConfig, pubspec);
+      }
+
+      async function updatePubspecDiagnostics() {
+        if (!monaco) return;
+        const currentRequestId = ++pubspecDiagnosticsRequestId;
+        const model = modelForPath('/pubspec.yaml');
+        try {
+          await packageConfigForWorkspace();
+          if (currentRequestId !== pubspecDiagnosticsRequestId) return;
+          monaco.editor.setModelMarkers(model, PUBSPEC_OWNER, []);
+        } catch (error) {
+          if (currentRequestId !== pubspecDiagnosticsRequestId) return;
+          const endLineNumber = Math.max(1, model.getLineCount());
+          monaco.editor.setModelMarkers(model, PUBSPEC_OWNER, [{
+            severity: monaco.MarkerSeverity.Error,
+            message: String((error && error.message) || error),
+            startLineNumber: 1,
+            startColumn: 1,
+            endLineNumber,
+            endColumn: Math.max(1, model.getLineMaxColumn(endLineNumber)),
+          }]);
+        }
       }
 
       async function showBundledPackages() {
@@ -1477,6 +1504,7 @@ void main() {
             });
           }
         }
+        void updatePubspecDiagnostics();
       });
 
       initSplitter();
@@ -1500,8 +1528,10 @@ void main() {
         workspace[activePath] = source;
         saveWorkspace();
         lspDidChange(activePath, source);
+        void updatePubspecDiagnostics();
       });
       registerLspProviders();
+      void updatePubspecDiagnostics();
       initLsp();
     </script>
   </body>

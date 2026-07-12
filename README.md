@@ -42,6 +42,7 @@ The current shell supports:
 - collapsible file explorer drawer
 - file create, rename, and delete
 - editable `pubspec.yaml` with validation against bundled packages
+- live `pubspec.yaml` diagnostics for unsupported or undeclared package imports
 - bundled package inspection from the Packages button
 - browser worker compilation
 - isolated iframe preview

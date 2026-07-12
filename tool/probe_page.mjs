@@ -51,6 +51,8 @@ const expectations = [
   'parseSimplePubspec',
   'validateDeclaredPackageImports',
   'packageConfigForWorkspace',
+  'pubspec-validation',
+  'updatePubspecDiagnostics',
   'components/counter.dart',
   'Compiling in worker...',
   'Jaspr browser playground',
