@@ -6,17 +6,12 @@ import 'package:pub/src/solver.dart' as pub_solver;
 import 'package:pub/src/source/root.dart';
 import 'package:pub/src/system_cache.dart';
 import 'package:pub_semver/pub_semver.dart';
+import 'package:web/web.dart' as web;
 
-/// Minimal compile-boundary probe for reusing dart-lang/pub solver code.
-///
-/// This file intentionally imports the upstream internal solver entry point
-/// from a separate package. The spike's first question is whether that import
-/// can be compiled for the browser and called for a trivial root package before
-/// we invest in a JSON wrapper.
 Future<void> main() async {
-  print('stage:cache');
+  setProbeText('stage:cache');
   final cache = SystemCache(rootDir: '.pub-cache-spike');
-  print('stage:pubspec');
+  setProbeText('stage:pubspec');
   final pubspec = Pubspec.parse(
     '''
 name: root_app
@@ -26,23 +21,23 @@ environment:
     cache.sources,
     containingDescription: ResolvedRootDescription.fromDir('.'),
   );
-  print('stage:root');
+  setProbeText('stage:root');
   final root = Package(pubspec, '.', const []);
-  print('stage:resolve-start');
+  setProbeText('stage:resolve-start');
   final result = await pub_solver.resolveVersions(
     pub_solver.SolveType.upgrade,
     cache,
     root,
     sdkOverrides: {'dart': Version.parse('3.12.0')},
   );
-  print('stage:resolve-done');
-
-  final exportedSymbols = <String, Object?>{
-    'solveTypeUpgrade': pub_solver.SolveType.upgrade.name,
-    'boundary': 'package:pub/src/solver.dart',
+  setProbeText(jsonEncode({
+    'ok': true,
     'attemptedSolutions': result.attemptedSolutions,
     'packages': result.packages.map((package) => package.toString()).toList(),
-  };
-  print(jsonEncode(exportedSymbols));
-  print('stage:printed');
+  }));
+}
+
+void setProbeText(String value) {
+  web.document.body?.setAttribute('data-probe-result', value);
+  web.document.body?.textContent = value;
 }

@@ -15,7 +15,8 @@ Current result:
 
 - importing `package:pub/src/solver.dart` compiles to JavaScript;
 - calling `resolveVersions(...)` for a no-dependency root package also compiles;
-- the naïve direct runtime wrapper does not yet produce usable JSON output, so the next step is not manual JS porting, but a browser-safe Dart adapter around package listing/cache behavior.
+- the VM version of the wrapper returns a no-dependency root solve result;
+- the browser-compiled wrapper reaches `resolve-start` but does not complete through the direct `SystemCache`/`resolveVersions` path, so the next step is not manual JS porting, but a browser-safe Dart adapter around package listing/cache behavior.
 
 Run the repo-level probe:
 

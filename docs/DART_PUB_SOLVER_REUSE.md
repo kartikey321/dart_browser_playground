@@ -88,4 +88,7 @@ Current result:
 - `dart pub get` works against the sibling `dart-lang/pub` checkout as a path dependency.
 - A minimal wrapper importing `package:pub/src/solver.dart` compiles to JavaScript.
 - A wrapper that calls `resolveVersions(...)` for a no-dependency root package also compiles to JavaScript.
-- The naïve direct runtime wrapper does not yet produce usable JSON output, so the next implementation step is a browser-safe Dart adapter around package listing/cache behavior rather than a broad manual JS port.
+- The same wrapper completes on the Dart VM for a no-dependency root package.
+- In the browser-compiled probe, the wrapper reaches `resolve-start` but does not complete through the direct `SystemCache`/`resolveVersions` path.
+
+Interpretation: reuse is still promising, but the browser module should not call the stock `SystemCache` path directly. The next implementation step is a browser-safe Dart adapter around package listing/cache behavior, or a small fork layer that reuses Pubgrub solver internals while replacing `SystemCache`, hosted prefetching, and filesystem-oriented source/cache behavior.
