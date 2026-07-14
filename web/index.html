@@ -454,95 +454,13 @@
         sortedWorkspacePaths,
         workspacePathTree,
       } from './lib/workspace.js';
+      import {
+        jasprAdapterConfig as adapter,
+      } from './adapters/jaspr/config.js';
 
-      const defaultWorkspace = {
-        '/pubspec.yaml': `name: jaspr_browser_playground
-description: A Jaspr playground that compiles in the browser.
-environment:
-  sdk: ^3.8.0
-
-dependencies:
-  jaspr: any
-`,
-        '/lib/main.dart': `import 'package:jaspr/client.dart';
-import 'package:jaspr_browser_playground/components/counter.dart';
-
-void main() {
-  Jaspr.initializeApp();
-  runApp(const PlaygroundApp(), attachTo: '#app');
-}
-`,
-        '/lib/components/counter.dart': `import 'package:jaspr/client.dart';
-import 'package:jaspr/dom.dart';
-
-class PlaygroundApp extends StatefulComponent {
-  const PlaygroundApp({super.key});
-
-  @override
-  State<PlaygroundApp> createState() => PlaygroundAppState();
-}
-
-class PlaygroundAppState extends State<PlaygroundApp> {
-  var count = 0;
-
-  @override
-  Component build(BuildContext context) {
-    return div(classes: 'app', [
-      h1([text('Jaspr browser playground')]),
-      p([text('Compiled from multiple files in the browser with DDC.')]),
-      button(
-        events: {
-          'click': (event) {
-            setState(() {
-              count += 1;
-            });
-          },
-        },
-        [text('Clicked $count times')],
-      ),
-    ]);
-  }
-}
-`,
-      };
-      const entrypoint = '/lib/main.dart';
-      const legacySample = `import 'package:jaspr/client.dart';
-import 'package:jaspr/dom.dart';
-
-class PlaygroundApp extends StatefulComponent {
-  const PlaygroundApp({super.key});
-
-  @override
-  State<PlaygroundApp> createState() => PlaygroundAppState();
-}
-
-class PlaygroundAppState extends State<PlaygroundApp> {
-  var count = 0;
-
-  @override
-  Component build(BuildContext context) {
-    return div(classes: 'app', [
-      h1([text('Jaspr browser playground')]),
-      p([text('Compiled locally in the browser with DDC.')]),
-      button(
-        events: {
-          'click': (event) {
-            setState(() {
-              count += 1;
-            });
-          },
-        },
-        [text('Clicked $count times')],
-      ),
-    ]);
-  }
-}
-
-void main() {
-  Jaspr.initializeApp();
-  runApp(const PlaygroundApp(), attachTo: '#app');
-}
-`;
+      const defaultWorkspace = adapter.defaultWorkspace;
+      const entrypoint = adapter.entrypoint;
+      const legacySample = adapter.legacySample;
 
       const status = document.querySelector('#status');
       const editorHost = document.querySelector('#editor');
@@ -562,7 +480,7 @@ void main() {
       const main = document.querySelector('.main');
       const splitter = document.querySelector('#splitter');
       const repoRoot = '.';
-      const toolchainRoot = './toolchain';
+      const toolchainRoot = adapter.toolchainRoot;
       const LSP_OWNER = 'dart-lsp';
       const PUBSPEC_OWNER = 'pubspec-validation';
       const params = new URLSearchParams(location.search);
@@ -599,7 +517,7 @@ void main() {
       const hostedSource = hostedPubEnabled
         ? new HostedPubPackageSource({ origin: location.origin })
         : null;
-      const compilerWorker = new Worker('adapters/jaspr/compiler_worker.js');
+      const compilerWorker = new Worker(adapter.compilerWorkerUrl);
 
       setPackageResolutionState('dirty');
 
@@ -678,7 +596,7 @@ void main() {
       }
 
       function loadWorkspace() {
-        const stored = localStorage.getItem('jaspr-ddc-playground-workspace');
+        const stored = localStorage.getItem(adapter.workspaceStorageKey);
         if (stored) {
           try {
             const parsed = JSON.parse(stored);
@@ -695,7 +613,7 @@ void main() {
           }
         }
 
-        const legacy = localStorage.getItem('jaspr-ddc-playground-source');
+        const legacy = localStorage.getItem(adapter.legacySourceStorageKey);
         if (legacy && legacy !== legacySample) {
           return { ...cloneDefaultWorkspace(), [entrypoint]: legacy };
         }
@@ -703,7 +621,7 @@ void main() {
       }
 
       function saveWorkspace() {
-        localStorage.setItem('jaspr-ddc-playground-workspace', JSON.stringify(workspace));
+        localStorage.setItem(adapter.workspaceStorageKey, JSON.stringify(workspace));
       }
 
       function sortedPaths() {
@@ -886,7 +804,7 @@ void main() {
         const next = clamp(percent, 20, 80);
         document.documentElement.style.setProperty('--editor-fr', `${next}fr`);
         document.documentElement.style.setProperty('--preview-fr', `${100 - next}fr`);
-        localStorage.setItem('jaspr-ddc-playground-split', String(next));
+        localStorage.setItem(adapter.splitStorageKey, String(next));
         splitter.setAttribute('aria-valuenow', String(Math.round(next)));
         editor?.layout();
         requestAnimationFrame(() => editor?.layout());
@@ -907,7 +825,7 @@ void main() {
         splitter.setAttribute('aria-orientation', 'vertical');
         splitter.setAttribute('aria-valuemin', '20');
         splitter.setAttribute('aria-valuemax', '80');
-        applySplit(Number(localStorage.getItem('jaspr-ddc-playground-split')) || 50);
+        applySplit(Number(localStorage.getItem(adapter.splitStorageKey)) || 50);
 
         splitter.addEventListener('pointerdown', (event) => {
           event.preventDefault();
@@ -930,7 +848,7 @@ void main() {
         splitter.addEventListener('pointerup', stopResize);
         splitter.addEventListener('pointercancel', stopResize);
         splitter.addEventListener('keydown', (event) => {
-          const current = Number(localStorage.getItem('jaspr-ddc-playground-split')) || 50;
+          const current = Number(localStorage.getItem(adapter.splitStorageKey)) || 50;
           const vertical = matchMedia('(max-width: 860px)').matches;
           const decrease = vertical ? event.key === 'ArrowUp' : event.key === 'ArrowLeft';
           const increase = vertical ? event.key === 'ArrowDown' : event.key === 'ArrowRight';
@@ -1368,7 +1286,7 @@ void main() {
             import(`${repoRoot}/dart_lsp.mjs`),
             fetch(`${repoRoot}/dart_lsp.wasm`),
             fetch(`${repoRoot}/dart_sdk.sum`).then(r => r.arrayBuffer()),
-            fetch(`${toolchainRoot}/jaspr_dart_packages.bin`).then(r => r.arrayBuffer()),
+            fetch(adapter.lspPackageBundle).then(r => r.arrayBuffer()),
           ]);
           const inst = await (await lspModule.compileStreaming(lspWasm)).instantiate({});
           inst.invokeMain();
@@ -1739,7 +1657,7 @@ void main() {
         editor?.setModel(modelForPath(activePath));
         renderWorkspaceChrome();
         saveWorkspace();
-        localStorage.removeItem('jaspr-ddc-playground-source');
+        localStorage.removeItem(adapter.legacySourceStorageKey);
         markPubspecDirty();
         if (lspReady) {
           for (const path of sortedPaths().filter((candidate) => candidate.endsWith('.dart'))) {

@@ -21,12 +21,13 @@ The shell owns:
 
 An adapter owns:
 
+- adapter config/default files
 - default workspace files
 - compiler worker implementation
 - package/toolchain assets
 - preview boot logic
 
-The current adapter is `web/adapters/jaspr/`.
+The current adapter is `web/adapters/jaspr/`. Its shell-facing config lives in `web/adapters/jaspr/config.js`.
 
 ## Current compile request shape
 

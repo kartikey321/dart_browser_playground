@@ -28,7 +28,9 @@ if (result.status !== 0) {
 
 const html = result.stdout;
 const expectations = [
-  'new Worker(\'adapters/jaspr/compiler_worker.js\')',
+  "from './adapters/jaspr/config.js'",
+  'jasprAdapterConfig as adapter',
+  'new Worker(adapter.compilerWorkerUrl)',
   'monaco-editor@0.50.0',
   'globalThis.lspStart',
   'registerCompletionItemProvider',
@@ -81,11 +83,9 @@ const expectations = [
   'missingDeclaredPackageImports',
   'dart.playground.addDependency',
   "Add '${packageName}' to pubspec.yaml",
-  'package:jaspr_browser_playground/components/counter.dart',
-  'components/counter.dart',
+  'adapter.defaultWorkspace',
+  'adapter.entrypoint',
   'Compiling in worker...',
-  'Jaspr browser playground',
-  'Clicked $count times',
 ];
 
 for (const expected of expectations) {
