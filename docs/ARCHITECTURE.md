@@ -56,9 +56,9 @@ memory:/workspace/.dart_tool/package_config.json
 
 The shell exposes dependencies through an editable `/pubspec.yaml`. The default path parses only the direct `dependencies:` section, validates that requested packages exist in the bundled toolchain package config, validates that direct Dart `package:` imports are declared, and sends a generated in-memory `package_config.json` to the compiler worker.
 
-The Pub get button performs this bundled-package resolution explicitly. Compile uses the last successful Pub get result and is blocked when `pubspec.yaml` or Dart `package:` imports have changed since that result. Plain source edits that do not affect package imports keep the resolved package config valid. The Packages button lists the package names currently available in the bundled static toolchain.
+The Pub get button performs this bundled-package resolution explicitly. Compile uses the last successful Pub get result and is blocked when `pubspec.yaml` or Dart `package:` imports have changed since that result. Plain source edits that do not affect package imports keep the resolved package config valid. The Packages button shows the current resolved package config after Pub get and falls back to the bundled static toolchain package list before resolution.
 
-An opt-in hosted mode is available with `?hostedPub=1`. In that mode Pub get keeps bundled packages as the base, resolves dependencies that are not present in the bundled config through the hosted pub source client, downloads and verifies package archives, maps package text into `memory:/packages/...`, and passes those sources to the compiler worker as `packageSources`.
+An opt-in hosted mode is available with `?hostedPub=1`. In that mode Pub get keeps bundled packages as the base, resolves dependencies that are not present in the bundled config through the hosted pub source client, downloads and verifies package archives, maps package text into `memory:/packages/...`, and passes those sources to the compiler worker as `packageSources`. The Packages button reports the loaded hosted archives and the merged current package config.
 
 The generated package config includes the workspace package from `name:` with `rootUri: memory:/workspace/` and `packageUri: lib/`, so files can import each other through `package:<workspace-name>/...` as well as relative paths.
 

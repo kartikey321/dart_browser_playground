@@ -581,6 +581,7 @@ void main() {
       let pubspecDiagnosticsRequestId = 0;
       let packageConfig = null;
       let packageSources = {};
+      let packageResolutionDetails = null;
       let packageResolutionState = 'dirty';
       let packageResolutionPubspec = '';
       let packageResolutionImportFingerprint = '';
@@ -622,6 +623,7 @@ void main() {
       function markPubspecDirty() {
         packageConfig = null;
         packageSources = {};
+        packageResolutionDetails = null;
         packageResolutionPubspec = '';
         packageResolutionImportFingerprint = '';
         setPackageResolutionState('dirty');
@@ -1059,6 +1061,7 @@ void main() {
             packageConfig: workspacePackageConfig(baseConfig, pubspec),
             packageSources: {},
             loaded: [],
+            hostedDependencies,
             resolvedPackageCount: 0,
           };
         }
@@ -1070,6 +1073,7 @@ void main() {
           packageConfig: workspacePackageConfig(baseConfig, pubspec, loaded.packageConfigEntries),
           packageSources: loaded.text,
           loaded: loaded.loaded,
+          hostedDependencies,
           resolvedPackageCount: resolution.packages.length,
         };
       }
@@ -1088,6 +1092,12 @@ void main() {
             const resolved = await packageConfigForWorkspaceWithHostedPackages();
             packageConfig = resolved.packageConfig;
             packageSources = resolved.packageSources;
+            packageResolutionDetails = {
+              mode: 'hosted',
+              hostedDependencies: resolved.hostedDependencies,
+              loaded: resolved.loaded,
+              resolvedPackageCount: resolved.resolvedPackageCount,
+            };
             const loadedNames = resolved.loaded.map((pkg) => `${pkg.packageName} ${pkg.version}`);
             appendLog([
               'Pub get complete.',
@@ -1097,6 +1107,12 @@ void main() {
           } else {
             packageConfig = await packageConfigForWorkspace();
             packageSources = {};
+            packageResolutionDetails = {
+              mode: 'bundled',
+              hostedDependencies: {},
+              loaded: [],
+              resolvedPackageCount: 0,
+            };
             appendLog('Pub get complete. Dependencies resolved from bundled packages.');
           }
           packageResolutionPubspec = workspace['/pubspec.yaml'];
@@ -1108,6 +1124,7 @@ void main() {
         } catch (error) {
           packageConfig = null;
           packageSources = {};
+          packageResolutionDetails = null;
           packageResolutionPubspec = '';
           packageResolutionImportFingerprint = '';
           setPackageResolutionState('failed');
@@ -1147,13 +1164,41 @@ void main() {
         }
       }
 
-      async function showBundledPackages() {
+      async function showPackages() {
         try {
           const baseConfig = await loadBundledPackageConfig();
-          const names = [...bundledPackageNames(baseConfig)].sort();
-          appendLog(`Bundled packages (${names.length}):\n${names.join(', ')}`);
+          const bundledNames = [...bundledPackageNames(baseConfig)].sort();
+          if (!packageConfig) {
+            appendLog([
+              `Bundled packages (${bundledNames.length}):`,
+              bundledNames.join(', '),
+              '',
+              'Run Pub get to see the current workspace package_config.',
+              hostedPubEnabled ? 'Hosted mode is enabled with ?hostedPub=1.' : 'Hosted mode is disabled.',
+            ].join('\n'));
+            return;
+          }
+
+          const currentPackages = JSON.parse(packageConfig).packages ?? [];
+          const currentNames = currentPackages.map((pkg) => pkg.name).sort();
+          const hostedLoaded = packageResolutionDetails?.loaded ?? [];
+          const hostedLines = hostedLoaded.map((pkg) =>
+            `${pkg.packageName} ${pkg.version} (${pkg.fileCount} files, ${pkg.sha256Verified ? 'sha256 verified' : 'sha256 not verified'})`);
+
+          appendLog([
+            `Current resolved packages (${currentNames.length}):`,
+            currentNames.join(', '),
+            '',
+            `Bundled toolchain packages (${bundledNames.length}):`,
+            bundledNames.join(', '),
+            '',
+            hostedPubEnabled
+              ? `Hosted mode: ${packageResolutionDetails?.resolvedPackageCount ?? 0} resolved, ${hostedLoaded.length} loaded archive(s).`
+              : 'Hosted mode: disabled.',
+            hostedLines.length ? `Loaded hosted packages:\n${hostedLines.join('\n')}` : 'Loaded hosted packages: none.',
+          ].join('\n'));
         } catch (error) {
-          appendLog(`Could not load bundled packages: ${String((error && error.message) || error)}`);
+          appendLog(`Could not show packages: ${String((error && error.message) || error)}`);
         }
       }
 
@@ -1714,7 +1759,7 @@ void main() {
 
       runButton.addEventListener('click', run);
       pubGetButton.addEventListener('click', runPubGet);
-      showPackagesButton.addEventListener('click', showBundledPackages);
+      showPackagesButton.addEventListener('click', showPackages);
       toggleExplorerButton.addEventListener('click', () => {
         explorerCollapsed = !explorerCollapsed;
         applyExplorerCollapsed();
