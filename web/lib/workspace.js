@@ -19,7 +19,39 @@ export function normalizeWorkspacePath(path, {
     next = `${defaultDirectory}/${next.replace(/^\/+/, '')}`;
   }
   if (next.includes('/../') || next.includes('/./')) return null;
+  if (next.endsWith('/..') || next.endsWith('/.')) return null;
+  if (next.split('/').some((part) => part === '..' || part === '.')) return null;
   return next;
+}
+
+export function validateWorkspacePath(path, workspace = {}, {
+  currentPath = null,
+  protectedPaths = [],
+  defaultDirectory = '/lib',
+  defaultExtension = '.dart',
+  mustBeDart = true,
+} = {}) {
+  const normalized = normalizeWorkspacePath(path, { defaultDirectory, defaultExtension });
+  if (!normalized) {
+    return {
+      path: null,
+      error: `Enter a valid workspace path under ${defaultDirectory}, for example ${defaultDirectory}/components/counter${defaultExtension}.`,
+    };
+  }
+
+  if (mustBeDart && !normalized.endsWith('.dart')) {
+    return { path: null, error: `Only Dart files can be created here: ${normalized}` };
+  }
+
+  if (protectedPaths.includes(normalized) && normalized !== currentPath) {
+    return { path: null, error: `This path is reserved: ${normalized}` };
+  }
+
+  if (workspace[normalized] !== undefined && normalized !== currentPath) {
+    return { path: normalized, error: `File already exists: ${normalized}` };
+  }
+
+  return { path: normalized, error: null };
 }
 
 export function languageForPath(path) {

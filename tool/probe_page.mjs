@@ -55,6 +55,7 @@ const expectations = [
   'workspacePackageImportFingerprint',
   'workspacePathTree',
   'sortedWorkspacePaths',
+  'validateWorkspacePath',
   'packageResolutionIsCurrent',
   'markDependenciesDirtyIfNeeded',
   'Run Pub get before compiling',
@@ -82,6 +83,7 @@ const expectations = [
   "Add '${packageName}' to pubspec.yaml",
   'adapter.defaultWorkspace',
   'adapter.entrypoint',
+  'adapter.newFileTemplate',
   'Compiling in worker...',
 ];
 

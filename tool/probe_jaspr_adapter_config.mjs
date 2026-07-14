@@ -10,6 +10,7 @@ assert(jasprAdapterConfig.compilerWorkerUrl === 'adapters/jaspr/compiler_worker.
 assert(jasprAdapterConfig.previewUrl === 'adapters/jaspr/preview.html', 'Expected preview URL.');
 assert(jasprAdapterConfig.toolchainRoot === './toolchain', 'Expected toolchain root.');
 assert(jasprAdapterConfig.lspPackageBundle.endsWith('/jaspr_dart_packages.bin'), 'Expected LSP package bundle.');
+assert(jasprAdapterConfig.newFileTemplate.includes("package:jaspr/dom.dart"), 'Expected Jaspr new-file template.');
 assert(typeof jasprAdapterConfig.defaultWorkspace['/pubspec.yaml'] === 'string', 'Expected default pubspec.');
 assert(typeof jasprAdapterConfig.defaultWorkspace[jasprAdapterConfig.entrypoint] === 'string', 'Expected default entrypoint source.');
 assert(

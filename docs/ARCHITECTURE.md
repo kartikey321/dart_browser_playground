@@ -13,7 +13,7 @@ The shell owns:
 - `pubspec.yaml` parsing and bundled-package validation through `web/lib/pubspec.js`
 - Dart LSP bridge, including completions, hover, diagnostics, and code actions
 - active file label and collapsible file explorer drawer
-- file create, rename, and delete operations
+- file create, rename, and delete operations with reusable workspace-path validation
 - editor/preview layout
 - worker compile request protocol
 - preview iframe message protocol
@@ -23,6 +23,7 @@ The shell owns:
 An adapter owns:
 
 - adapter config/default files
+- adapter-specific new-file template
 - default workspace files
 - compiler worker implementation
 - package/toolchain assets

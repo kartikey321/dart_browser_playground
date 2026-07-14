@@ -8,6 +8,9 @@ export const jasprAdapterConfig = {
   workspaceStorageKey: 'jaspr-ddc-playground-workspace',
   legacySourceStorageKey: 'jaspr-ddc-playground-source',
   splitStorageKey: 'jaspr-ddc-playground-split',
+  newFileTemplate: `import 'package:jaspr/dom.dart';
+
+`,
   defaultWorkspace: {
     '/pubspec.yaml': `name: jaspr_browser_playground
 description: A Jaspr playground that compiles in the browser.

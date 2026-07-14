@@ -6,6 +6,7 @@ import {
   normalizeWorkspacePath,
   packageImportFingerprint,
   sortedWorkspacePaths,
+  validateWorkspacePath,
   workspacePathTree,
 } from '../web/lib/workspace.js';
 
@@ -24,6 +25,9 @@ assert(displayPath('/lib/widgets/card.dart') === 'widgets/card.dart', 'Expected 
 assert(displayPath('/pubspec.yaml') === 'pubspec.yaml', 'Expected root display path.');
 assert(normalizeWorkspacePath('components/counter') === '/lib/components/counter.dart', 'Expected normalized Dart path.');
 assert(normalizeWorkspacePath('/lib/a/../b') === null, 'Expected parent segment rejection.');
+assert(validateWorkspacePath('widgets/card', workspace).error?.includes('already exists'), 'Expected duplicate file validation.');
+assert(validateWorkspacePath('/lib/main.dart', workspace, { protectedPaths: ['/lib/main.dart'] }).error?.includes('reserved'), 'Expected protected path validation.');
+assert(validateWorkspacePath('components/new', workspace).path === '/lib/components/new.dart', 'Expected valid path.');
 assert(languageForPath('/pubspec.yaml') === 'yaml', 'Expected YAML language.');
 assert(languageForPath('/lib/main.dart') === 'dart', 'Expected Dart language.');
 assert(

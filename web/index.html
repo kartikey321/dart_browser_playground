@@ -453,6 +453,7 @@
         normalizeWorkspacePath,
         packageImportFingerprint as workspacePackageImportFingerprint,
         sortedWorkspacePaths,
+        validateWorkspacePath,
         workspacePathTree,
       } from './lib/workspace.js';
       import {
@@ -729,14 +730,21 @@
 
       function createFile() {
         const requested = prompt('New Dart file path', '/lib/components/new_component.dart');
-        const path = normalizeWorkspacePath(requested);
+        if (requested === null) return;
+        const { path, error } = validateWorkspacePath(requested, workspace, {
+          protectedPaths: [entrypoint, '/pubspec.yaml'],
+        });
+        if (error) {
+          alert(error);
+          if (path && workspace[path] !== undefined) switchFile(path);
+          return;
+        }
         if (!path) return;
         if (workspace[path] !== undefined) {
-          alert(`File already exists: ${path}`);
           switchFile(path);
           return;
         }
-        workspace[path] = `import 'package:jaspr/dom.dart';\n\n`;
+        workspace[path] = adapter.newFileTemplate ?? '';
         saveWorkspace();
         modelForPath(path);
         lspDidOpen(path);
@@ -751,12 +759,16 @@
           return;
         }
         const requested = prompt('Rename file', activePath);
-        const nextPath = normalizeWorkspacePath(requested);
-        if (!nextPath || nextPath === activePath) return;
-        if (workspace[nextPath] !== undefined) {
-          alert(`File already exists: ${nextPath}`);
+        if (requested === null) return;
+        const { path: nextPath, error } = validateWorkspacePath(requested, workspace, {
+          currentPath: activePath,
+          protectedPaths: [entrypoint, '/pubspec.yaml'],
+        });
+        if (error) {
+          alert(error);
           return;
         }
+        if (!nextPath || nextPath === activePath) return;
 
         const source = currentSource();
         lspDidClose(activePath);
