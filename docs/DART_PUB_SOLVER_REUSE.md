@@ -78,6 +78,14 @@ Next spike:
 
 ```sh
 npm run probe:pub-solver-reuse
+npm run probe:pub-solver-js
 ```
 
-Then create an experiment package that imports a minimal subset of `dart-lang/pub` solver internals, exposes a JSON function, and attempts `dart compile js`.
+The JS spike lives in `experiments/pub_solver_js`.
+
+Current result:
+
+- `dart pub get` works against the sibling `dart-lang/pub` checkout as a path dependency.
+- A minimal wrapper importing `package:pub/src/solver.dart` compiles to JavaScript.
+- A wrapper that calls `resolveVersions(...)` for a no-dependency root package also compiles to JavaScript.
+- The naïve direct runtime wrapper does not yet produce usable JSON output, so the next implementation step is a browser-safe Dart adapter around package listing/cache behavior rather than a broad manual JS port.

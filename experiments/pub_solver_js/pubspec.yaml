@@ -1,0 +1,9 @@
+name: pub_solver_js_spike
+publish_to: none
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  pub:
+    path: ../../../pub

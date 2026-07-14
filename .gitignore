@@ -1,3 +1,6 @@
 .DS_Store
 node_modules/
 *.log
+experiments/pub_solver_js/.dart_tool/
+experiments/pub_solver_js/build/
+experiments/pub_solver_js/pubspec.lock
