@@ -553,28 +553,45 @@
           resolved: 'Pub get',
           failed: 'Retry Pub get',
         }[nextState] ?? 'Pub get';
+        const title = {
+          dirty: 'Run Pub get to resolve dependencies before compiling.',
+          resolving: 'Resolving dependencies from pubspec.yaml.',
+          resolved: 'Dependencies are resolved for the current pubspec and package imports.',
+          failed: 'Pub get failed. Fix pubspec.yaml or imports, then retry.',
+        }[nextState] ?? '';
         pubGetButton.textContent = label;
+        pubGetButton.title = title;
+        pubGetButton.setAttribute('aria-label', title ? `${label}. ${title}` : label);
         pubGetButton.disabled = running || nextState === 'resolving';
       }
 
-      function markPubspecDirty() {
+      function markPubspecDirty(reason = 'pubspec.yaml or package imports changed') {
+        const wasResolved = packageResolutionState === 'resolved';
         packageConfig = null;
         packageSources = {};
         packageResolutionDetails = null;
         packageResolutionPubspec = '';
         packageResolutionImportFingerprint = '';
         setPackageResolutionState('dirty');
+        if (wasResolved) {
+          setStatus('Pub get required');
+          appendLog(`Pub get required: ${reason}.`);
+        }
       }
 
       function markDependenciesDirtyIfNeeded(previousPath, previousSource) {
         if (packageResolutionState !== 'resolved') return;
         if (previousPath === '/pubspec.yaml') {
-          if (previousSource !== workspace['/pubspec.yaml']) markPubspecDirty();
+          if (previousSource !== workspace['/pubspec.yaml']) {
+            markPubspecDirty('pubspec.yaml changed');
+          }
           return;
         }
         if (previousPath?.endsWith('.dart')) {
           const currentFingerprint = packageImportFingerprint();
-          if (currentFingerprint !== packageResolutionImportFingerprint) markPubspecDirty();
+          if (currentFingerprint !== packageResolutionImportFingerprint) {
+            markPubspecDirty('Dart package imports changed');
+          }
         }
       }
 
@@ -757,7 +774,7 @@
         modelForPath(path);
         lspDidOpen(path);
         switchFile(path);
-        markPubspecDirty();
+        markPubspecDirty(`created ${path}`);
         void updatePubspecDiagnostics();
       }
 
@@ -778,13 +795,14 @@
         }
         if (!nextPath || nextPath === activePath) return;
 
+        const previousPath = activePath;
         const source = currentSource();
-        lspDidClose(activePath);
-        const oldModel = models.get(activePath);
+        lspDidClose(previousPath);
+        const oldModel = models.get(previousPath);
         oldModel?.dispose();
-        models.delete(activePath);
-        lspVersions.delete(activePath);
-        delete workspace[activePath];
+        models.delete(previousPath);
+        lspVersions.delete(previousPath);
+        delete workspace[previousPath];
 
         workspace[nextPath] = source;
         activePath = nextPath;
@@ -792,7 +810,7 @@
         editor?.setModel(modelForPath(activePath));
         lspDidOpen(activePath);
         renderWorkspaceChrome();
-        markPubspecDirty();
+        markPubspecDirty(`renamed ${previousPath} to ${activePath}`);
         void updatePubspecDiagnostics();
       }
 
@@ -803,17 +821,18 @@
         }
         if (!confirm(`Delete ${activePath}?`)) return;
 
-        lspDidClose(activePath);
-        const oldModel = models.get(activePath);
+        const deletedPath = activePath;
+        lspDidClose(deletedPath);
+        const oldModel = models.get(deletedPath);
         oldModel?.dispose();
-        models.delete(activePath);
-        lspVersions.delete(activePath);
-        delete workspace[activePath];
+        models.delete(deletedPath);
+        lspVersions.delete(deletedPath);
+        delete workspace[deletedPath];
         activePath = entrypoint;
         saveWorkspace();
         editor?.setModel(modelForPath(activePath));
         renderWorkspaceChrome();
-        markPubspecDirty();
+        markPubspecDirty(`deleted ${deletedPath}`);
         void updatePubspecDiagnostics();
       }
 
@@ -1041,7 +1060,7 @@
           setRunning(false);
           markPubspecDirty();
           setStatus('Run Pub get first');
-          appendLog('Run Pub get before compiling. The compiler uses the last resolved package_config.json.');
+          appendLog('Run Pub get before compiling. The compiler uses the last resolved package_config.json and it is missing or stale.');
           return;
         }
 
