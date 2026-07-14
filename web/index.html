@@ -472,6 +472,7 @@
       const entrypoint = adapter.entrypoint;
       const legacySample = adapter.legacySample;
 
+      const heading = document.querySelector('h1');
       const status = document.querySelector('#status');
       const editorHost = document.querySelector('#editor');
       const editorWorkbench = document.querySelector('#editor-workbench');
@@ -487,6 +488,7 @@
       const resetButton = document.querySelector('#reset');
       const log = document.querySelector('#log');
       const preview = document.querySelector('#preview');
+      const previewTitle = document.querySelector('.toolbar-title');
       const main = document.querySelector('.main');
       const splitter = document.querySelector('#splitter');
       const repoRoot = '.';
@@ -528,6 +530,13 @@
         ? new HostedPubPackageSource({ origin: location.origin })
         : null;
       const compilerWorker = new Worker(adapter.compilerWorkerUrl);
+
+      document.title = adapter.title;
+      heading.textContent = adapter.title;
+      previewTitle.textContent = adapter.previewLabel;
+      if (preview.getAttribute('src') !== adapter.previewUrl) {
+        preview.src = adapter.previewUrl;
+      }
 
       setPackageResolutionState('dirty');
 

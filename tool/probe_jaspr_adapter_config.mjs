@@ -6,6 +6,7 @@ function assert(condition, message) {
 }
 
 assert(jasprAdapterConfig.entrypoint === '/lib/main.dart', 'Expected Jaspr entrypoint.');
+assert(jasprAdapterConfig.previewLabel === 'DDC iframe preview', 'Expected preview label.');
 assert(jasprAdapterConfig.compilerWorkerUrl === 'adapters/jaspr/compiler_worker.js', 'Expected compiler worker URL.');
 assert(jasprAdapterConfig.previewUrl === 'adapters/jaspr/preview.html', 'Expected preview URL.');
 assert(jasprAdapterConfig.toolchainRoot === './toolchain', 'Expected toolchain root.');
@@ -24,6 +25,7 @@ console.log(
     {
       ok: true,
       title: jasprAdapterConfig.title,
+      previewLabel: jasprAdapterConfig.previewLabel,
       entrypoint: jasprAdapterConfig.entrypoint,
       defaultFiles: Object.keys(jasprAdapterConfig.defaultWorkspace).sort(),
       compilerWorkerUrl: jasprAdapterConfig.compilerWorkerUrl,

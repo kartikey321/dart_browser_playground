@@ -1,5 +1,6 @@
 export const jasprAdapterConfig = {
   title: 'Jaspr Browser Playground',
+  previewLabel: 'DDC iframe preview',
   entrypoint: '/lib/main.dart',
   compilerWorkerUrl: 'adapters/jaspr/compiler_worker.js',
   previewUrl: 'adapters/jaspr/preview.html',

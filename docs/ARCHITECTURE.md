@@ -24,6 +24,7 @@ The shell owns:
 An adapter owns:
 
 - adapter config/default files
+- adapter-owned title and preview URL/label
 - adapter-specific new-file template
 - default workspace files
 - compiler worker implementation
