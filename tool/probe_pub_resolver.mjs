@@ -48,6 +48,32 @@ const source = {
   },
 };
 
+const backtrackingPackages = {
+  foo: [
+    version('1.0.0'),
+    version('2.0.0'),
+  ],
+  bar: [
+    version('1.0.0'),
+    version('2.0.0', { baz: '1.0.0' }),
+  ],
+  baz: [
+    version('1.0.0', { foo: '2.0.0' }),
+  ],
+};
+
+const backtrackingSource = {
+  async fetchPackage(packageName) {
+    const versions = backtrackingPackages[packageName];
+    if (!versions) throw new Error(`Unknown package ${packageName}`);
+    return {
+      name: packageName,
+      latest: versions.at(-1),
+      versions,
+    };
+  },
+};
+
 assert(
   selectBestVersion(packages.app_dep, ['^1.0.0']).version === '1.1.0',
   'Expected best direct version.',
@@ -68,11 +94,24 @@ await assertThrowsAsync(
   'No version satisfies constraints',
 );
 
+const backtracked = await resolveHostedDependencies({
+  foo: '1.0.0',
+  bar: 'any',
+}, backtrackingSource);
+
+const backtrackedSelected = Object.fromEntries(
+  backtracked.packages.map((pkg) => [pkg.packageName, pkg.version]),
+);
+assert(backtrackedSelected.foo === '1.0.0', 'Expected root foo 1.0.0.');
+assert(backtrackedSelected.bar === '1.0.0', 'Expected resolver to backtrack to bar 1.0.0.');
+assert(!backtrackedSelected.baz, 'Expected abandoned bar 2.0.0 dependency to be absent.');
+
 console.log(
   JSON.stringify(
     {
       ok: true,
       selected,
+      backtrackedSelected,
       constraints: resolved.constraints,
     },
     null,
