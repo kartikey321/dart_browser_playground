@@ -7,6 +7,7 @@ This repo separates the generic browser-playground shell from a concrete Dart/Ja
 The shell owns:
 
 - workspace file map
+- reusable workspace path/tree/import helpers in `web/lib/workspace.js`
 - Monaco models
 - `pubspec.yaml` parsing and bundled-package validation through `web/lib/pubspec.js`
 - Dart LSP bridge, including completions, hover, diagnostics, and code actions
