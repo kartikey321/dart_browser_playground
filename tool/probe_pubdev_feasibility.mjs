@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { HostedPubPackageSource } from '../web/lib/hosted_pub_source.js';
+import { loadHostedPackageSources } from '../web/lib/hosted_package_loader.js';
 import {
   packageArchiveToMemoryText,
   parseTarGz,
@@ -44,6 +45,9 @@ const packageMainLibrary = `memory:/packages/${metadata.name}/lib/${metadata.nam
 const constraint = process.env.CONSTRAINT || '^1.0.0';
 const bestCompatibleVersion = bestVersion(metadata.versions, constraint);
 const resolved = await resolveHostedDependencies({ [metadata.name]: constraint }, source);
+const loaded = process.env.SKIP_LOAD_ALL === '1'
+  ? null
+  : await loadHostedPackageSources(resolved, source);
 
 console.log(
   JSON.stringify(
@@ -57,6 +61,9 @@ console.log(
       bestCompatibleVersion,
       resolvedPackageCount: resolved.packages.length,
       resolvedPackages: Object.fromEntries(resolved.packages.map((pkg) => [pkg.packageName, pkg.version])),
+      loadedPackageCount: loaded?.loaded.length ?? null,
+      loadedTextFileCount: loaded ? Object.keys(loaded.text).length : null,
+      loadedPackageConfigCount: loaded?.packageConfigEntries.length ?? null,
       archiveUrl: metadata.latest.archiveUrl,
       archiveSha256: metadata.latest.archiveSha256,
       archiveSha256Verified: archiveVerification.ok,

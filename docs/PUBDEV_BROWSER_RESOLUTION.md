@@ -100,9 +100,11 @@ This keeps the browser playground aligned with client-side Dart/Jaspr examples a
 
 - `web/lib/hosted_pub_source.js` contains the browser-compatible hosted source client.
 - `web/lib/package_archive.js` contains browser-compatible gzip/TAR archive parsing, SHA-256 verification, and archive-to-virtual-package text mapping.
+- `web/lib/hosted_package_loader.js` downloads resolved hosted package archives, verifies them, maps them into `memory:/packages/...`, and produces package config entries.
 - `web/lib/pub_version.js` contains the browser-compatible version/constraint helper used before full transitive solving exists.
 - `web/lib/pub_resolver.js` contains the first simple hosted dependency resolver.
 - `tool/probe_hosted_pub_source.mjs` tests the hosted source client without network access.
 - `tool/probe_package_archive.mjs` tests archive parsing without network access.
+- `tool/probe_hosted_package_loader.mjs` tests resolved package archive loading without network access.
 - `tool/probe_pub_resolver.mjs` tests simple transitive dependency resolution without network access.
 - `tool/probe_pubdev_feasibility.mjs` verifies live pub.dev metadata/archive CORS behavior.

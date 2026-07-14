@@ -52,6 +52,22 @@ export class HostedPubPackageSource {
       sha256: response.headers.get('x-goog-hash'),
     };
   }
+
+  async fetchArchive(archiveUrl) {
+    const response = await this.fetchImpl(archiveUrl, {
+      headers: this.origin ? { Origin: this.origin } : {},
+      redirect: 'follow',
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch archive: ${response.status} ${response.statusText}`);
+    }
+    return {
+      url: response.url || archiveUrl,
+      corsAllowed: corsAllowed(response, this.origin),
+      corsHeader: response.headers.get('access-control-allow-origin'),
+      buffer: await response.arrayBuffer(),
+    };
+  }
 }
 
 export function normalizeHostedUrl(hostedUrl) {
