@@ -8,6 +8,7 @@ The shell owns:
 
 - workspace file map
 - reusable workspace path/tree/import helpers in `web/lib/workspace.js`
+- reusable package resolution/reporting helpers in `web/lib/package_resolution.js`
 - Monaco models
 - `pubspec.yaml` parsing and bundled-package validation through `web/lib/pubspec.js`
 - Dart LSP bridge, including completions, hover, diagnostics, and code actions

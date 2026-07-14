@@ -440,11 +440,12 @@
         HostedPubPackageSource,
       } from './lib/hosted_pub_source.js';
       import {
-        loadHostedPackageSources,
-      } from './lib/hosted_package_loader.js';
-      import {
-        resolveHostedDependencies,
-      } from './lib/pub_resolver.js';
+        assertSimplePubspecDependencies,
+        formatPackagesReport,
+        formatPubGetSuccess,
+        packageResolutionDetails as makePackageResolutionDetails,
+        resolveWorkspaceWithHostedPackages,
+      } from './lib/package_resolution.js';
       import {
         displayPath,
         fileUri,
@@ -893,69 +894,13 @@
         return buildPackageConfigFromPubspec(baseConfig, pubspec);
       }
 
-      function assertSimplePubspecDependencies(pubspec) {
-        if (pubspec.unsupportedDependencyKinds.length) {
-          throw new Error(`Only simple hosted dependencies are supported right now; complex dependency syntax found for: ${pubspec.unsupportedDependencyKinds.join(', ')}.`);
-        }
-      }
-
-      function workspacePackageConfig(baseConfig, pubspec, hostedPackageConfigEntries = []) {
-        const hostedNames = new Set(hostedPackageConfigEntries.map((entry) => entry.name));
-        const packages = Array.isArray(baseConfig?.packages)
-          ? baseConfig.packages.filter((pkg) => !hostedNames.has(pkg.name))
-          : [];
-        const packageNames = new Set(packages.map((pkg) => pkg.name));
-
-        for (const hostedEntry of hostedPackageConfigEntries) {
-          packages.push(hostedEntry);
-          packageNames.add(hostedEntry.name);
-        }
-
-        if (pubspec.name && /^[A-Za-z_][A-Za-z0-9_]*$/.test(pubspec.name) && !packageNames.has(pubspec.name)) {
-          packages.unshift({
-            name: pubspec.name,
-            rootUri: 'memory:/workspace/',
-            packageUri: 'lib/',
-            languageVersion: '3.8',
-          });
-        }
-
-        return JSON.stringify({ ...baseConfig, packages }, null, 2);
-      }
-
       async function packageConfigForWorkspaceWithHostedPackages() {
-        const pubspec = parseSimplePubspec(workspace['/pubspec.yaml']);
-        validateDeclaredPackageImports(pubspec, workspace);
-        assertSimplePubspecDependencies(pubspec);
-
         const baseConfig = await loadBundledPackageConfig();
-        const bundledNames = bundledPackageNames(baseConfig);
-        const hostedDependencies = Object.fromEntries(
-          [...pubspec.dependencies]
-            .filter((name) => name !== 'flutter' && !bundledNames.has(name))
-            .map((name) => [name, pubspec.dependencyConstraints[name] || 'any']),
-        );
-
-        if (!Object.keys(hostedDependencies).length) {
-          return {
-            packageConfig: workspacePackageConfig(baseConfig, pubspec),
-            packageSources: {},
-            loaded: [],
-            hostedDependencies,
-            resolvedPackageCount: 0,
-          };
-        }
-
-        const resolution = await resolveHostedDependencies(hostedDependencies, hostedSource);
-        const loaded = await loadHostedPackageSources(resolution, hostedSource);
-
-        return {
-          packageConfig: workspacePackageConfig(baseConfig, pubspec, loaded.packageConfigEntries),
-          packageSources: loaded.text,
-          loaded: loaded.loaded,
-          hostedDependencies,
-          resolvedPackageCount: resolution.packages.length,
-        };
+        return resolveWorkspaceWithHostedPackages({
+          workspace,
+          baseConfig,
+          hostedSource,
+        });
       }
 
       async function runPubGet() {
@@ -972,28 +917,23 @@
             const resolved = await packageConfigForWorkspaceWithHostedPackages();
             packageConfig = resolved.packageConfig;
             packageSources = resolved.packageSources;
-            packageResolutionDetails = {
+            packageResolutionDetails = makePackageResolutionDetails({
               mode: 'hosted',
               hostedDependencies: resolved.hostedDependencies,
               loaded: resolved.loaded,
               resolvedPackageCount: resolved.resolvedPackageCount,
-            };
-            const loadedNames = resolved.loaded.map((pkg) => `${pkg.packageName} ${pkg.version}`);
-            appendLog([
-              'Pub get complete.',
-              `Hosted mode: ${resolved.resolvedPackageCount} package(s) resolved, ${resolved.loaded.length} package archive(s) loaded.`,
-              loadedNames.length ? `Loaded hosted packages:\n${loadedNames.join('\n')}` : 'No hosted packages were needed; all dependencies came from the bundled toolchain.',
-            ].join('\n'));
+            });
+            appendLog(formatPubGetSuccess(packageResolutionDetails));
           } else {
             packageConfig = await packageConfigForWorkspace();
             packageSources = {};
-            packageResolutionDetails = {
+            packageResolutionDetails = makePackageResolutionDetails({
               mode: 'bundled',
               hostedDependencies: {},
               loaded: [],
               resolvedPackageCount: 0,
-            };
-            appendLog('Pub get complete. Dependencies resolved from bundled packages.');
+            });
+            appendLog(formatPubGetSuccess(packageResolutionDetails));
           }
           packageResolutionPubspec = workspace['/pubspec.yaml'];
           packageResolutionImportFingerprint = packageImportFingerprint();
@@ -1047,36 +987,12 @@
       async function showPackages() {
         try {
           const baseConfig = await loadBundledPackageConfig();
-          const bundledNames = [...bundledPackageNames(baseConfig)].sort();
-          if (!packageConfig) {
-            appendLog([
-              `Bundled packages (${bundledNames.length}):`,
-              bundledNames.join(', '),
-              '',
-              'Run Pub get to see the current workspace package_config.',
-              hostedPubEnabled ? 'Hosted mode is enabled with ?hostedPub=1.' : 'Hosted mode is disabled.',
-            ].join('\n'));
-            return;
-          }
-
-          const currentPackages = JSON.parse(packageConfig).packages ?? [];
-          const currentNames = currentPackages.map((pkg) => pkg.name).sort();
-          const hostedLoaded = packageResolutionDetails?.loaded ?? [];
-          const hostedLines = hostedLoaded.map((pkg) =>
-            `${pkg.packageName} ${pkg.version} (${pkg.fileCount} files, ${pkg.sha256Verified ? 'sha256 verified' : 'sha256 not verified'})`);
-
-          appendLog([
-            `Current resolved packages (${currentNames.length}):`,
-            currentNames.join(', '),
-            '',
-            `Bundled toolchain packages (${bundledNames.length}):`,
-            bundledNames.join(', '),
-            '',
-            hostedPubEnabled
-              ? `Hosted mode: ${packageResolutionDetails?.resolvedPackageCount ?? 0} resolved, ${hostedLoaded.length} loaded archive(s).`
-              : 'Hosted mode: disabled.',
-            hostedLines.length ? `Loaded hosted packages:\n${hostedLines.join('\n')}` : 'Loaded hosted packages: none.',
-          ].join('\n'));
+          appendLog(formatPackagesReport({
+            baseConfig,
+            packageConfig,
+            packageResolution: packageResolutionDetails,
+            hostedPubEnabled,
+          }));
         } catch (error) {
           appendLog(`Could not show packages: ${String((error && error.message) || error)}`);
         }

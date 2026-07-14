@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "serve": "cd web && python3 -m http.server 8766",
-    "probe": "node tool/probe_workspace.mjs && node tool/probe_jaspr_adapter_config.mjs && node tool/probe_pubspec_validation.mjs && node tool/probe_pub_version.mjs && node tool/probe_pub_resolver.mjs && node tool/probe_hosted_pub_source.mjs && node tool/probe_package_archive.mjs && node tool/probe_hosted_package_loader.mjs && node tool/probe_page.mjs && node tool/probe_jaspr_multifile.mjs",
+    "probe": "node tool/probe_workspace.mjs && node tool/probe_jaspr_adapter_config.mjs && node tool/probe_pubspec_validation.mjs && node tool/probe_pub_version.mjs && node tool/probe_pub_resolver.mjs && node tool/probe_hosted_pub_source.mjs && node tool/probe_package_archive.mjs && node tool/probe_hosted_package_loader.mjs && node tool/probe_package_resolution.mjs && node tool/probe_page.mjs && node tool/probe_jaspr_multifile.mjs",
     "probe:pubdev": "node tool/probe_pubdev_feasibility.mjs",
     "probe:pub-solver-reuse": "node tool/probe_pub_solver_reuse.mjs",
     "probe:pub-solver-js": "node tool/probe_pub_solver_js_spike.mjs"
