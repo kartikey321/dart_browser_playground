@@ -88,10 +88,12 @@ assert(metadata.latest.archiveUrl.endsWith('demo-1.0.0.tar.gz'), 'Expected archi
 assert(metadata.latest.dependencies.web === '^1.0.0', 'Expected latest dependencies.');
 assert(metadata.corsAllowed === true, 'Expected origin-specific metadata CORS to be accepted.');
 assert(calls[0].init.headers.Accept === 'application/vnd.pub.v2+json', 'Expected pub API accept header.');
+assert(!('Origin' in calls[0].init.headers), 'Expected browser-forbidden Origin header not to be set manually.');
 
 const archive = await source.checkArchive(metadata.latest.archiveUrl);
 assert(archive.corsAllowed === true, 'Expected origin-specific archive CORS to be accepted.');
 assert(archive.contentLength === '1234', 'Expected archive content length.');
+assert(!calls[1].init.headers, 'Expected archive HEAD request not to set browser-forbidden Origin header manually.');
 
 console.log(
   JSON.stringify(

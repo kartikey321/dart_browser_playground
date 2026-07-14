@@ -4,7 +4,7 @@ This document records the current feasibility of real browser-side `pub get` for
 
 ## Current finding
 
-Browser-only pub.dev fetching appears feasible for public hosted packages.
+Browser-only pub.dev fetching appears feasible for public hosted packages. The playground now has a default bundled Pub get path and an opt-in hosted package path behind `?hostedPub=1`.
 
 Verified on 2026-07-12:
 
@@ -70,9 +70,9 @@ analyzer + compiler worker
 2. Add a `HostedPubPackageSource` module that can fetch metadata for one package. (`web/lib/hosted_pub_source.js`)
 3. Add a package archive fetch/unpack probe for one small package. (`web/lib/package_archive.js`)
 4. Add package source caching in IndexedDB.
-5. Port or implement a minimal Pubgrub-compatible solver over fetched metadata. Current building blocks are `web/lib/pub_version.js`, which supports pub-style version comparison/ranges/caret constraints, and `web/lib/pub_resolver.js`, which performs simple hosted transitive resolution by accumulating constraints and selecting the best compatible version. This is not full Pubgrub yet.
-6. Generate `package_config.json` from the solved graph.
-7. Feed downloaded package sources into the analyzer and compiler workers.
+5. Port or implement a minimal Pubgrub-compatible solver over fetched metadata. Current building blocks are `web/lib/pub_version.js`, which supports pub-style version comparison/ranges/caret constraints, and `web/lib/pub_resolver.js`, which performs hosted transitive resolution with recursive backtracking for simple hosted dependencies. This is not full Pubgrub yet.
+6. Generate `package_config.json` from the solved graph. The hosted-mode app path now does this for opt-in hosted dependencies.
+7. Feed downloaded package sources into the analyzer and compiler workers. The hosted-mode app path feeds downloaded sources into the compiler worker; analyzer integration is still pending.
 
 ## Constraints and non-goals for first real implementation
 
@@ -90,8 +90,8 @@ This keeps the browser playground aligned with client-side Dart/Jaspr examples a
 
 ## Open technical questions
 
-- Which gzip/tar implementation should be used in-browser?
-- Should the version solver be ported from `dart-lang/pub`, implemented in JS, or compiled from Dart?
+- Should the current minimal gzip/tar implementation be replaced with a maintained in-browser library before broad package support?
+- Should the version solver be replaced with a Dart-compiled wrapper around `dart-lang/pub` internals? See `DART_PUB_SOLVER_REUSE.md`.
 - How much metadata/archive data should be cached in IndexedDB?
 - Should package downloads be capped by compressed/uncompressed size?
 - How should the UI distinguish bundled, downloaded, and unsupported dependencies?
@@ -102,9 +102,11 @@ This keeps the browser playground aligned with client-side Dart/Jaspr examples a
 - `web/lib/package_archive.js` contains browser-compatible gzip/TAR archive parsing, SHA-256 verification, and archive-to-virtual-package text mapping.
 - `web/lib/hosted_package_loader.js` downloads resolved hosted package archives, verifies them, maps them into `memory:/packages/...`, and produces package config entries.
 - `web/lib/pub_version.js` contains the browser-compatible version/constraint helper used before full transitive solving exists.
-- `web/lib/pub_resolver.js` contains the first simple hosted dependency resolver.
+- `web/lib/pub_resolver.js` contains the interim hosted dependency resolver with recursive backtracking for simple hosted dependencies.
+- `web/index.html?hostedPub=1` wires hosted resolution/package loading into the real Pub get button.
 - `tool/probe_hosted_pub_source.mjs` tests the hosted source client without network access.
 - `tool/probe_package_archive.mjs` tests archive parsing without network access.
 - `tool/probe_hosted_package_loader.mjs` tests resolved package archive loading without network access.
 - `tool/probe_pub_resolver.mjs` tests simple transitive dependency resolution without network access.
 - `tool/probe_pubdev_feasibility.mjs` verifies live pub.dev metadata/archive CORS behavior.
+- `tool/probe_pub_solver_reuse.mjs` inspects a local `dart-lang/pub` checkout and records why solver reuse needs a wrapper/adapters spike.

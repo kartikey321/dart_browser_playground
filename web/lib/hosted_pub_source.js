@@ -19,10 +19,7 @@ export class HostedPubPackageSource {
 
   async fetchPackage(packageName) {
     const response = await this.fetchImpl(this.packageMetadataUrl(packageName), {
-      headers: this.origin ? {
-        Accept: PUB_API_ACCEPT,
-        Origin: this.origin,
-      } : {
+      headers: {
         Accept: PUB_API_ACCEPT,
       },
       redirect: 'follow',
@@ -37,7 +34,6 @@ export class HostedPubPackageSource {
   async checkArchive(archiveUrl) {
     const response = await this.fetchImpl(archiveUrl, {
       method: 'HEAD',
-      headers: this.origin ? { Origin: this.origin } : {},
       redirect: 'follow',
     });
     if (!response.ok) {
@@ -55,7 +51,6 @@ export class HostedPubPackageSource {
 
   async fetchArchive(archiveUrl) {
     const response = await this.fetchImpl(archiveUrl, {
-      headers: this.origin ? { Origin: this.origin } : {},
       redirect: 'follow',
     });
     if (!response.ok) {

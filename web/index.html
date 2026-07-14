@@ -436,6 +436,15 @@
         parseSimplePubspec,
         validateDeclaredPackageImports,
       } from './lib/pubspec.js';
+      import {
+        HostedPubPackageSource,
+      } from './lib/hosted_pub_source.js';
+      import {
+        loadHostedPackageSources,
+      } from './lib/hosted_package_loader.js';
+      import {
+        resolveHostedDependencies,
+      } from './lib/pub_resolver.js';
 
       const defaultWorkspace = {
         '/pubspec.yaml': `name: jaspr_browser_playground
@@ -547,6 +556,8 @@ void main() {
       const toolchainRoot = './toolchain';
       const LSP_OWNER = 'dart-lsp';
       const PUBSPEC_OWNER = 'pubspec-validation';
+      const params = new URLSearchParams(location.search);
+      const hostedPubEnabled = params.get('hostedPub') === '1';
 
       let compilerReady = false;
       let previewReady = false;
@@ -569,11 +580,15 @@ void main() {
       let activeRequestId = 0;
       let pubspecDiagnosticsRequestId = 0;
       let packageConfig = null;
+      let packageSources = {};
       let packageResolutionState = 'dirty';
       let packageResolutionPubspec = '';
       let packageResolutionImportFingerprint = '';
       let explorerCollapsed = localStorage.getItem('dart-browser-playground-explorer-collapsed') === '1';
-      const autorun = new URLSearchParams(location.search).get('autorun') === '1';
+      const autorun = params.get('autorun') === '1';
+      const hostedSource = hostedPubEnabled
+        ? new HostedPubPackageSource({ origin: location.origin })
+        : null;
       const compilerWorker = new Worker('adapters/jaspr/compiler_worker.js');
 
       setPackageResolutionState('dirty');
@@ -606,6 +621,7 @@ void main() {
 
       function markPubspecDirty() {
         packageConfig = null;
+        packageSources = {};
         packageResolutionPubspec = '';
         packageResolutionImportFingerprint = '';
         setPackageResolutionState('dirty');
@@ -995,24 +1011,103 @@ void main() {
         return buildPackageConfigFromPubspec(baseConfig, pubspec);
       }
 
+      function assertSimplePubspecDependencies(pubspec) {
+        if (pubspec.unsupportedDependencyKinds.length) {
+          throw new Error(`Only simple hosted dependencies are supported right now; complex dependency syntax found for: ${pubspec.unsupportedDependencyKinds.join(', ')}.`);
+        }
+      }
+
+      function workspacePackageConfig(baseConfig, pubspec, hostedPackageConfigEntries = []) {
+        const hostedNames = new Set(hostedPackageConfigEntries.map((entry) => entry.name));
+        const packages = Array.isArray(baseConfig?.packages)
+          ? baseConfig.packages.filter((pkg) => !hostedNames.has(pkg.name))
+          : [];
+        const packageNames = new Set(packages.map((pkg) => pkg.name));
+
+        for (const hostedEntry of hostedPackageConfigEntries) {
+          packages.push(hostedEntry);
+          packageNames.add(hostedEntry.name);
+        }
+
+        if (pubspec.name && /^[A-Za-z_][A-Za-z0-9_]*$/.test(pubspec.name) && !packageNames.has(pubspec.name)) {
+          packages.unshift({
+            name: pubspec.name,
+            rootUri: 'memory:/workspace/',
+            packageUri: 'lib/',
+            languageVersion: '3.8',
+          });
+        }
+
+        return JSON.stringify({ ...baseConfig, packages }, null, 2);
+      }
+
+      async function packageConfigForWorkspaceWithHostedPackages() {
+        const pubspec = parseSimplePubspec(workspace['/pubspec.yaml']);
+        validateDeclaredPackageImports(pubspec, workspace);
+        assertSimplePubspecDependencies(pubspec);
+
+        const baseConfig = await loadBundledPackageConfig();
+        const bundledNames = bundledPackageNames(baseConfig);
+        const hostedDependencies = Object.fromEntries(
+          [...pubspec.dependencies]
+            .filter((name) => name !== 'flutter' && !bundledNames.has(name))
+            .map((name) => [name, pubspec.dependencyConstraints[name] || 'any']),
+        );
+
+        if (!Object.keys(hostedDependencies).length) {
+          return {
+            packageConfig: workspacePackageConfig(baseConfig, pubspec),
+            packageSources: {},
+            loaded: [],
+            resolvedPackageCount: 0,
+          };
+        }
+
+        const resolution = await resolveHostedDependencies(hostedDependencies, hostedSource);
+        const loaded = await loadHostedPackageSources(resolution, hostedSource);
+
+        return {
+          packageConfig: workspacePackageConfig(baseConfig, pubspec, loaded.packageConfigEntries),
+          packageSources: loaded.text,
+          loaded: loaded.loaded,
+          resolvedPackageCount: resolution.packages.length,
+        };
+      }
+
       async function runPubGet() {
         if (packageResolutionState === 'resolving') return false;
         workspace[activePath] = currentSource();
         saveWorkspace();
         setPackageResolutionState('resolving');
         setStatus('Resolving pubspec...');
-        appendLog('Running Pub get against bundled playground packages...');
+        appendLog(hostedPubEnabled
+          ? 'Running Pub get against bundled packages plus hosted pub.dev packages...'
+          : 'Running Pub get against bundled playground packages...');
         try {
-          packageConfig = await packageConfigForWorkspace();
+          if (hostedPubEnabled) {
+            const resolved = await packageConfigForWorkspaceWithHostedPackages();
+            packageConfig = resolved.packageConfig;
+            packageSources = resolved.packageSources;
+            const loadedNames = resolved.loaded.map((pkg) => `${pkg.packageName} ${pkg.version}`);
+            appendLog([
+              'Pub get complete.',
+              `Hosted mode: ${resolved.resolvedPackageCount} package(s) resolved, ${resolved.loaded.length} package archive(s) loaded.`,
+              loadedNames.length ? `Loaded hosted packages:\n${loadedNames.join('\n')}` : 'No hosted packages were needed; all dependencies came from the bundled toolchain.',
+            ].join('\n'));
+          } else {
+            packageConfig = await packageConfigForWorkspace();
+            packageSources = {};
+            appendLog('Pub get complete. Dependencies resolved from bundled packages.');
+          }
           packageResolutionPubspec = workspace['/pubspec.yaml'];
           packageResolutionImportFingerprint = packageImportFingerprint();
           setPackageResolutionState('resolved');
           setStatus(compilerReady && previewReady ? 'Ready' : 'Pub get resolved');
-          appendLog('Pub get complete. Dependencies resolved from bundled packages.');
           await updatePubspecDiagnostics();
           return true;
         } catch (error) {
           packageConfig = null;
+          packageSources = {};
           packageResolutionPubspec = '';
           packageResolutionImportFingerprint = '';
           setPackageResolutionState('failed');
@@ -1028,7 +1123,14 @@ void main() {
         const currentRequestId = ++pubspecDiagnosticsRequestId;
         const model = modelForPath('/pubspec.yaml');
         try {
-          await packageConfigForWorkspace();
+          const pubspec = parseSimplePubspec(workspace['/pubspec.yaml']);
+          validateDeclaredPackageImports(pubspec, workspace);
+          if (hostedPubEnabled) {
+            assertSimplePubspecDependencies(pubspec);
+          } else {
+            const baseConfig = await loadBundledPackageConfig();
+            buildPackageConfigFromPubspec(baseConfig, pubspec);
+          }
           if (currentRequestId !== pubspecDiagnosticsRequestId) return;
           monaco.editor.setModelMarkers(model, PUBSPEC_OWNER, []);
         } catch (error) {
@@ -1092,6 +1194,7 @@ void main() {
           entrypoint,
           files: workspace,
           packageConfig,
+          packageSources,
         });
       }
 

@@ -93,7 +93,7 @@ async function init() {
   });
 }
 
-async function compile({ requestId, files, entrypoint, packageConfig }) {
+async function compile({ requestId, files, entrypoint, packageConfig, packageSources }) {
   if (typeof compileDdc !== 'function' || !baseRequestText || !ddcOutlineBase64) {
     throw new Error('Compiler worker is not ready.');
   }
@@ -118,6 +118,7 @@ async function compile({ requestId, files, entrypoint, packageConfig }) {
     packageConfig: 'memory:/workspace/.dart_tool/package_config.json',
     text: {
       ...baseRequestText,
+      ...(packageSources || {}),
       'memory:/workspace/.dart_tool/package_config.json': packageConfig || basePackageConfig,
       ...workspaceText,
     },
